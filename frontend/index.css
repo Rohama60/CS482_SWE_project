@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --color-felt: #0f3d2e;
+  --color-felt-light: #165a42;
+  --color-gold: #c0392b;
+  --color-gold-light: #e05c4e;
+  --color-gold-dark: #8b1a1a;
+  --color-ink: #0a0a0b;
+  --color-surface: #131418;
+  --color-surface-raised: #1c1e25;
+  --color-surface-border: #2a2d38;
+  --color-red-card: #c0392b;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-ink);
+  color: #e8e4dc;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2d38; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3e50; }
