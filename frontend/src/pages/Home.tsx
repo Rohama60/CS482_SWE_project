@@ -1,4 +1,6 @@
 import  type { View } from '../components/types.ts'
+import { SignUpView } from './SignUpView.tsx'
+
 const SUITS = ['♠', '♥', '♦', '♣']
 
  const bgCards = [
@@ -31,10 +33,12 @@ function FloatingCard({ suit, rank, style }: { suit: string; rank: string; style
 
 type HomeProps = {
     view: View
+    setView: (view: View) => void
     
 
 }
-export default function Home({ view}: HomeProps) {
+export default function Home({ view, setView }: HomeProps) {
+   
  return (
     <div>
         
@@ -71,7 +75,7 @@ export default function Home({ view}: HomeProps) {
                 Sign In
             </button>
             <button
-                onClick={() => console.log('Create Account clicked')}
+                onClick={() => setView('signup')}
                 className="px-4 py-2 text-sm font-semibold rounded-lg transition-all hover:brightness-110"
                 style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b' }}
             >
@@ -131,7 +135,7 @@ export default function Home({ view}: HomeProps) {
             </button>
 
             <button
-                onClick={() => console.log('Create Account clicked')}
+                onClick={() => setView('signup')}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{
                 background: 'linear-gradient(135deg, rgba(192,57,43,0.14) 0%, rgba(139,26,26,0.08) 100%)',
