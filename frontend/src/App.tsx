@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import Home from './pages/Home.tsx'
-import { SignUpView } from './pages/SignUpView.tsx'
+import Home from './views/Home.tsx'
+import { SignUpView } from './views/SignUpView.tsx'
 const SUITS = ['♠', '♥', '♦', '♣']
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'

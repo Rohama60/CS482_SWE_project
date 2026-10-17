@@ -25,6 +25,7 @@
   "homepage": "https://github.com/Rohama60/CS482_SWE_project#readme",
   "dependencies": {
     "bootstrap": "^5.3.8",
+    "cors": "^2.8.6",
     "mongoose": "^9.11.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
