@@ -1,5 +1,5 @@
 {
-  "name": "cs482_swe_project",
+  "name": "figma-make-app",
   "version": "1.0.0",
   "description": "User story access link:  https://studentsloyola-my.sharepoint.com/:x:/g/personal/jdsanchez_loyola_edu/IQA8QvOWSmHnTJA6puzJVsB9AXUrUGoJ-GCTMwpOWqp2S_o?e=XO6ZyH",
   "main": "index.js",
@@ -7,7 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite frontend/src --config frontend/src/vite.config.ts",
+    "build": "vite build frontend/src --config frontend/src/vite.config.ts",
+    "preview": "vite preview frontend/src --config frontend/src/vite.config.ts",
+    "format": "oxfmt"
   },
   "repository": {
     "type": "git",
@@ -21,26 +24,13 @@
   },
   "homepage": "https://github.com/Rohama60/CS482_SWE_project#readme",
   "dependencies": {
-    "dotenv": "^18.0.7",
-    "express": "^5.3.0",
-    "mongoose": "^9.11.2"
-  },
-  
-  "name": "figma-make-app",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "format": "oxfmt"
-  },
-  "dependencies": {
     "bootstrap": "^5.3.8",
+    "mongoose": "^9.11.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "private": true,
+  "type": "module",
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
@@ -51,5 +41,3 @@
     "vite": "^8.0.5"
   }
 }
-
-
