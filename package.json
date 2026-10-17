@@ -7,9 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "vite frontend/src --config frontend/src/vite.config.ts",
-    "build": "vite build frontend/src --config frontend/src/vite.config.ts",
-    "preview": "vite preview frontend/src --config frontend/src/vite.config.ts",
+    "dev": "vite frontend --config frontend/vite.config.ts",
+    "build": "vite build frontend --config frontend/vite.config.ts",
+    "preview": "vite preview frontend --config frontend/vite.config.ts",
     "format": "oxfmt"
   },
   "repository": {
