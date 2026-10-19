@@ -1,6 +1,7 @@
 import  type { View } from '../components/types.ts'
 import { SignUpView } from './SignUpView.tsx'
-
+import { useState } from 'react'
+import { Lobby } from './Lobby.tsx'
 const SUITS = ['♠', '♥', '♦', '♣']
 
  const bgCards = [
@@ -110,7 +111,7 @@ export default function Home({ view, setView }: HomeProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
 
             <button
-                onClick={() => console.log('Play as Guest clicked')}
+                onClick={() => setView('lobby')}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{
                 background: 'linear-gradient(135deg, #6b1010 0%, #450a0a 100%)',
