@@ -4,6 +4,11 @@ import { SignUpView } from './views/SignUpView.tsx'
 import { Lobby } from './views/Lobby.tsx'
 import  { TableCreation }  from './views/TableCreation.tsx'
 import type { View } from './components/types.ts'
+
+
+
+
+
 const SUITS = ['♠', '♥', '♦', '♣']
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
@@ -20,7 +25,6 @@ const TABLES = [
 ]
 
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
-const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {
   return (
@@ -531,9 +535,16 @@ function LoginModal({ onClose }: { onClose: () => void }) {
 
 
 export default function App() {
+  
   const [view, setView] = useState<View>('home')
   const [selectedTable, setSelectedTable] = useState<PokerTableData>(TABLES[0])
+  const [previousView, setPreviousView] = useState<View>('home')
 
+
+  function openSignUp() {
+    setPreviousView(view);
+    setView('signup');
+  }
   if (view === 'createTable') {
     return(
     <TableCreation 
@@ -553,13 +564,14 @@ export default function App() {
             setView('table');
         }}
         onCreateTable={() => setView('createTable')}
+        onSignUp={openSignUp}
       />
     )
   }
   
   if (view === 'table') return <PokerTable table={selectedTable} onLeave={() => setView('lobby')} />
 
-  if (view === 'signup') return <SignUpView onClose={() => setView('home')} />
+  if (view === 'signup') return <SignUpView onClose={() => setView(previousView)} />
   
-  return  <Home view={view} setView={setView}  /> 
+  return  <Home view={view} setView={setView} onSignUp={openSignUp} /> 
 }

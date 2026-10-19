@@ -6,6 +6,7 @@ type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
   onCreateTable: () => void;
+  onSignUp: () => void;
 };
 
 
@@ -88,7 +89,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
     </div>
   )
 }
-export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onCreateTable , onSignUp }: LobbyProps) {
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
@@ -128,6 +129,7 @@ export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
             <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>Guest · $500 chips</span>
           </div>
           <button
+            onClick={ onSignUp }          
             className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
             style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }}
           >
