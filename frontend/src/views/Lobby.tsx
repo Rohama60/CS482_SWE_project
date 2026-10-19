@@ -1,15 +1,24 @@
 import { useState } from 'react'
 import { SignUpView } from './SignUpView.tsx'
 import type { View } from '../components/types.ts'
+import { TableCreation } from './TableCreation.tsx'
+type LobbyProps = {
+  onBack: () => void;
+  onJoin: (table: PokerTableData) => void;
+  onCreateTable: () => void;
+};
 
 
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
+
+type PokerTableData = (typeof TABLES)[number]
 
 
 function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: string; sub: string; accent?: boolean }) {
   const [watching, setWatching] = useState(false)
   const [done, setDone] = useState(false)
-
+  
+  
   function handleWatch() {
     setWatching(true)
     setTimeout(() => { setWatching(false); setDone(true) }, 2000)
@@ -79,9 +88,10 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
     </div>
   )
 }
-export function Lobby({ onBack }: { onBack: () => void}) {
+export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<number | null>(null)
+  const [showCreateTable, setShowCreateTable] = useState(false)
 
   const filtered = filter === 'all' ? TABLES : TABLES.filter(t => t.stakes === filter)
 
@@ -137,21 +147,13 @@ export function Lobby({ onBack }: { onBack: () => void}) {
               {TABLES.filter(t => t.status !== 'full').length} tables with open seats
             </p>
           </div>
-          <div className="relative group">
-            <button
-              onClick={() => console.log('Create Table clicked')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed"
-              style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38', opacity: 0.45 }}
-            >
-              + Create Table
-            </button>
-            <div
-              className="absolute right-0 top-full mt-2 px-3 py-2 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20"
-              style={{ background: '#1c1e25', border: '1px solid #2a2d38', color: '#e8e4dc' }}
-            >
-              🔒 Sign up to create tables
-            </div>
-          </div>
+           <button
+            onClick= { onCreateTable }
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+            style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff', border: '1px solid #c0392b' }}
+          >
+            <span aria-hidden="true">+</span> Create Table
+          </button>
         </div>
 
         {/* Stats row */}

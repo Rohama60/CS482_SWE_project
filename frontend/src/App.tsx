@@ -2,6 +2,8 @@ import { useState } from 'react'
 import Home from './views/Home.tsx'
 import { SignUpView } from './views/SignUpView.tsx'
 import { Lobby } from './views/Lobby.tsx'
+import  { TableCreation }  from './views/TableCreation.tsx'
+import type { View } from './components/types.ts'
 const SUITS = ['♠', '♥', '♦', '♣']
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
@@ -80,6 +82,7 @@ function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: s
 }
 
 type PokerTableData = (typeof TABLES)[number]
+
 
 type CardData = { rank: string; suit: string }
 
@@ -478,7 +481,6 @@ function FloatingCard({ suit, rank, style }: { suit: string; rank: string; style
   )
 }
 
-type View = 'home' | 'login' | 'signup' | 'lobby' | 'table'
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   return (
@@ -532,13 +534,32 @@ export default function App() {
   const [view, setView] = useState<View>('home')
   const [selectedTable, setSelectedTable] = useState<PokerTableData>(TABLES[0])
 
+  if (view === 'createTable') {
+    return(
+    <TableCreation 
+        onClose={() => setView('lobby')} 
+        onCreate={(table : PokerTableData) => {setSelectedTable(table); setView('table')
+
+        }}
+      />
+    )
+  }
+  if (view === 'lobby') {
+    return (
+      <Lobby 
+          onBack={() => setView('home')}
+          onJoin={(table : PokerTableData) => {
+            setSelectedTable(table); 
+            setView('table');
+        }}
+        onCreateTable={() => setView('createTable')}
+      />
+    )
+  }
   
-  
-  // if (view === 'table') return <PokerTable table={selectedTable} onLeave={() => setView('lobby')} />
+  if (view === 'table') return <PokerTable table={selectedTable} onLeave={() => setView('lobby')} />
+
   if (view === 'signup') return <SignUpView onClose={() => setView('home')} />
-
-   if (view === 'lobby') return <Lobby onBack={() => setView('home')} />
-
-
+  
   return  <Home view={view} setView={setView}  /> 
 }

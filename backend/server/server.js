@@ -20,6 +20,8 @@ app.post('/api/signup', (req,res,next) => {
     next();
 }, SignUpController);
 
+
+
 async function startingServer() {
     try{
         await mongoose.connect(process.env.MONGODB_URI);

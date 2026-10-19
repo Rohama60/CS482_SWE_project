@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt';
 import { createAccount , findAccountByEmail, findAccountByUsername } from '../dao/AccountDAO.js';
+
+
 export async function SignUpController(req, res){
     const { name, email, username, password } = req.body;
     if(!name || !email || !username || !password){

@@ -1,4 +1,4 @@
-import  type { View } from '../components/types.ts'
+import type { View } from '../components/types.ts'
 import { SignUpView } from './SignUpView.tsx'
 import { useState } from 'react'
 import { Lobby } from './Lobby.tsx'
