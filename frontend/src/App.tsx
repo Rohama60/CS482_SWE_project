@@ -2,9 +2,8 @@ import { useState } from 'react'
 import Home from './views/Home.tsx'
 import { SignUpView } from './views/SignUpView.tsx'
 import { Lobby } from './views/Lobby.tsx'
-import  { TableCreation }  from './views/TableCreation.tsx'
 import type { View } from './components/types.ts'
-
+import type { PokerTableData } from './views/Lobby.tsx'
 
 
 
@@ -85,7 +84,6 @@ function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: s
   )
 }
 
-type PokerTableData = (typeof TABLES)[number]
 
 
 type CardData = { rank: string; suit: string }
@@ -545,16 +543,7 @@ export default function App() {
     setPreviousView(view);
     setView('signup');
   }
-  if (view === 'createTable') {
-    return(
-    <TableCreation 
-        onClose={() => setView('lobby')} 
-        onCreate={(table : PokerTableData) => {setSelectedTable(table); setView('table')
-
-        }}
-      />
-    )
-  }
+  
   if (view === 'lobby') {
     return (
       <Lobby 
@@ -563,7 +552,7 @@ export default function App() {
             setSelectedTable(table); 
             setView('table');
         }}
-        onCreateTable={() => setView('createTable')}
+        
         onSignUp={openSignUp}
       />
     )

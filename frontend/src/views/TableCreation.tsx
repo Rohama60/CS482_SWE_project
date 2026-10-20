@@ -3,8 +3,17 @@ import { useState } from 'react'
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
 const STAKE_LABELS: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' }
 
+export type TableConfig = {
+     name: string
+     stakes: 'low' | 'medium' | 'high'
+     seats: number
+     isPrivate: boolean
+     Bots: boolean
+
+  }
+
 export type PokerTableData = {
-  id: number
+  id: string | number
   name: string
   stakes: string
   blind: string
@@ -14,6 +23,7 @@ export type PokerTableData = {
   avgPot: string
   hands: number
   bots?: number
+  isPrivate?: boolean
 }
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {
@@ -30,13 +40,16 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
   )
 }
 
+
 export function TableCreation({
   onClose,
   onCreate,
 }: {
   onClose: () => void
-  onCreate: (table: PokerTableData) => void
+  onCreate: (table: TableConfig) => void
 }) {
+
+  
   const [name, setName] = useState('Midnight Draw')
   const [stakes, setStakes] = useState<'low' | 'medium' | 'high'>('low')
   const [seats, setSeats] = useState(6)
@@ -58,16 +71,11 @@ export function TableCreation({
 
   function handleCreate() {
     onCreate({
-      id: Date.now(),
       name: tableName,
       stakes,
-      blind: blindByStake[stakes],
-      players: 1 + bots,
-      max: seats,
-      status: bots === 0 ? 'waiting' : bots + 1 >= seats ? 'full' : 'active',
-      avgPot: '—',
-      hands: 0,
-      bots,
+      seats,
+      isPrivate,
+      Bots: addBots,
     })
   }
 

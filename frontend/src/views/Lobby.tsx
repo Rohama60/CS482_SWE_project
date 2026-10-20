@@ -1,12 +1,11 @@
-import { useState } from 'react'
+import { useState , useEffect} from 'react'
 import { SignUpView } from './SignUpView.tsx'
 import type { View } from '../components/types.ts'
-import { TableCreation , type PokerTableData} from './TableCreation.tsx'
+import { TableCreation , type PokerTableData, type TableConfig} from './TableCreation.tsx'
 
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
-  onCreateTable: () => void;
   onSignUp: () => void;
 };
 
@@ -88,13 +87,43 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
     </div>
   )
 }
-export function Lobby({ onBack, onJoin, onCreateTable , onSignUp }: LobbyProps) {
+export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
   const [filter, setFilter] = useState<StakeFilter>('all')
-  const [hovered, setHovered] = useState<number | null>(null)
+  const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
-  const [tables, setTables] = useState<PokerTableData[]>(INITIAL_TABLES)
+  const [tables, setTables] = useState<PokerTableData[]>([])
 
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
+ 
+
+  useEffect(() => {
+    fetch('http://localhost:3000/api/tables')
+      .then(res => res.json())
+      .then(data => setTables(data.tables))
+      .catch(err => console.error('Failed to load tables', err))
+  }, [])
+
+  async function handleCreate(config: TableConfig) {
+    try {
+      const res = await fetch('http://localhost:3000/api/tables', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Failed to create table')
+        return
+      }
+      setTables(prev => [data.table, ...prev])
+      setShowCreateTable(false)
+      onJoin(data.table)
+    } catch {
+      alert('Could not reach the server')
+    }
+  }
+
+
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
@@ -345,11 +374,7 @@ export function Lobby({ onBack, onJoin, onCreateTable , onSignUp }: LobbyProps) 
       {showCreateTable && (
         <TableCreation
           onClose={() => setShowCreateTable(false)}
-          onCreate={table => {
-            setTables(prev => [table, ...prev])
-            setShowCreateTable(false)
-            onJoin(table)
-          }}
+          onCreate={handleCreate}
         />
       )}
     </div>
