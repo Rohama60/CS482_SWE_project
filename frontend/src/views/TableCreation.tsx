@@ -1,20 +1,20 @@
 import { useState } from 'react'
 
-const TABLES = [
-  { id: 1, name: 'Velvet Room',    stakes: 'low',    blind: '1 / 2',     players: 4, max: 6, status: 'active',  avgPot: '$18',   hands: 142 },
-  { id: 2, name: 'The Boneyard',   stakes: 'medium', blind: '5 / 10',    players: 3, max: 6, status: 'active',  avgPot: '$87',   hands: 58  },
-  { id: 3, name: 'Crimson Lounge', stakes: 'high',   blind: '25 / 50',   players: 5, max: 6, status: 'active',  avgPot: '$420',  hands: 31  },
-  { id: 4, name: 'Lucky Draw',     stakes: 'low',    blind: '1 / 2',     players: 2, max: 6, status: 'active',  avgPot: '$12',   hands: 209 },
-  { id: 5, name: 'Dead Man\'s Hand',stakes:'medium', blind: '5 / 10',    players: 6, max: 6, status: 'full',    avgPot: '$95',   hands: 77  },
-  { id: 6, name: 'High Roller',    stakes: 'high',   blind: '100 / 200', players: 2, max: 6, status: 'active',  avgPot: '$1,840',hands: 12  },
-  { id: 7, name: 'Parlor No. 7',   stakes: 'low',    blind: '1 / 2',     players: 1, max: 6, status: 'waiting', avgPot: '—',     hands: 0   },
-  { id: 8, name: 'Iron Curtain',   stakes: 'medium', blind: '10 / 20',   players: 4, max: 6, status: 'active',  avgPot: '$155',  hands: 44  },
-]
-
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
 const STAKE_LABELS: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' }
 
-type PokerTableData = (typeof TABLES)[number]
+export type PokerTableData = {
+  id: number
+  name: string
+  stakes: string
+  blind: string
+  players: number
+  max: number
+  status: string
+  avgPot: string
+  hands: number
+  bots?: number
+}
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {
   return (
@@ -41,6 +41,16 @@ export function TableCreation({
   const [stakes, setStakes] = useState<'low' | 'medium' | 'high'>('low')
   const [seats, setSeats] = useState(6)
   const [isPrivate, setIsPrivate] = useState(false)
+  const [addBots, setAddBots] = useState(false)
+  const [botCount, setBotsCount] = useState(1)
+
+  const maxBots = seats - 1
+  const bots = addBots ? botCount : 0
+
+  function changeSeats(n: number){
+    setSeats(n)
+    setBotsCount(c => Math.min(c, n - 1))
+  }
 
   const blindByStake = { low: '1 / 2', medium: '5 / 10', high: '25 / 50' }
   const buyInByStake = { low: '$100', medium: '$500', high: '$2,500' }
@@ -52,11 +62,12 @@ export function TableCreation({
       name: tableName,
       stakes,
       blind: blindByStake[stakes],
-      players: 1,
+      players: 1 + bots,
       max: seats,
-      status: 'waiting',
+      status: bots === 0 ? 'waiting' : bots + 1 >= seats ? 'full' : 'active',
       avgPot: '—',
       hands: 0,
+      bots,
     })
   }
 
@@ -146,7 +157,7 @@ export function TableCreation({
                 <select
                   id="table-seats"
                   value={seats}
-                  onChange={event => setSeats(Number(event.target.value))}
+                  onChange={event => changeSeats(Number(event.target.value))}
                   className="form-select py-3 shadow-none"
                   style={{ backgroundColor: '#0d0f13', borderColor: '#343743', color: '#e8e4dc' }}
                 >
@@ -162,7 +173,51 @@ export function TableCreation({
             </div>
 
             <div className="d-flex align-items-center justify-content-between rounded-xl p-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
+              <div className="rounded-xl p-3 mb-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <p className="m-0 text-sm font-semibold" style={{ color: '#e8e4dc' }}>Add CPU players</p>
+                    <p className="m-0 mt-1" style={{ color: '#e8e4dc', opacity: 0.38, fontSize: '0.72rem' }}>Add computer players to fill empty seats.</p>
+                  </div>
+                  <div className="form-check form-switch m-0">
+                    <input 
+                      className="form-check-input shadow-none"
+                      type="checkbox"
+                      role="switch"
+                      checked={addBots}
+                      onChange={event => setAddBots(event.target.checked)}
+                      aria-label="Add CPU players"
+                    />
+                  </div>
+                </div>
+
+                {addBots && (
+                  <div className="d-flex align-items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid #2d3039' }}>
+                    <span className = "text-xs" style={{ color: '#e8e4dc', opacity: 0.5 }}>How many?</span>
+                    <button 
+                      type="button"
+                      onClick={() => setBotsCount(c => Math.max(1, c - 1))}
+                      disabled={botCount <= 1}
+                      className="rounded-lg border-0"
+                      style={{ width: '2rem', height: '2rem', background: '#22242c', color: '#e8e4dc', opacity: botCount <= 1 ? 0.3 : 1 }}
+                      aria-label="Fewer CPU players"
+                    >-</button>
+                    <span className = "text-lg font-semibold text-center" style={{ color: '#e8e4dc', width: '1.5rem' }}>{botCount}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBotsCount(c => Math.min(maxBots, c + 1))}
+                      disabled={botCount >= maxBots}
+                      className="rounded-lg border-0"
+                      style={{ width: '2rem', height: '2rem', background: '#22242c', color: '#e8e4dc', opacity: botCount >= maxBots ? 0.3 : 1 }}
+                      aria-label="More CPU players"
+                    >+</button>
+                    <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Max {maxBots}</span>
+                  </div>
+                )}
+              </div>
+
               <div>
+
                 <p className="m-0 text-sm font-semibold" style={{ color: '#e8e4dc' }}>Private table</p>
                 <p className="m-0 mt-1" style={{ color: '#e8e4dc', opacity: 0.38, fontSize: '0.72rem' }}>Only players with your invite code can join.</p>
               </div>
@@ -192,7 +247,7 @@ export function TableCreation({
                 </span>
               </div>
               <div className="d-flex align-items-center justify-content-between mt-4">
-                <SeatDots filled={1} max={seats} />
+                <SeatDots filled={1 + bots} max={seats} />
                 <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.4 }}>1/{seats} seated</span>
               </div>
             </div>
@@ -201,6 +256,7 @@ export function TableCreation({
               {[
                 ['Game', '5-card draw'],
                 ['Access', isPrivate ? 'Invite only' : 'Public lobby'],
+                ['CPU players', bots ? `${bots} bot${bots > 1 ? 's' : ''}` : 'None'],
                 ['Buy-in', buyInByStake[stakes]],
                 ['Host seat', 'Reserved for you'],
               ].map(([label, value]) => (
