@@ -3,7 +3,7 @@ import { SignUpController } from '../src/controllers/SignUpController.js';
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { CreateTableController , GetTablesController, GetTableByIdController } from '../src/controllers/TableController.js';
+import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController} from '../src/controllers/TableController.js';
 
 dotenv.config();
 
@@ -23,7 +23,7 @@ app.post('/api/signup', (req,res,next) => {
 app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
 app.get('/api/tables/:id', GetTableByIdController);
-
+app.delete('/api/tables/:id', DeleteTableController);
 
 async function startingServer() {
     try{

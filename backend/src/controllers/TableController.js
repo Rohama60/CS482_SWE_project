@@ -1,4 +1,4 @@
-import { createTable, findAllTables, findTableById } from '../dao/TableDAO.js';
+import { createTable, findAllTables, findTableById, deleteTable } from '../dao/TableDAO.js';
 
 const BLIND_BY_STAKE = { low: '1 / 2', medium: '5 / 10', high: '25 / 50' };
 
@@ -54,4 +54,12 @@ export async function GetTableByIdController(req, res) {
         return res.status(404).json({ error: 'Table not found' });
     }
     return res.status(200).json({ table });
+}
+
+export async function DeleteTableController(req, res) {
+    const table = await deleteTable(req.params.id);
+    if (!table) {
+        return res.status(404).json({ error: 'Table not found' });
+    }
+    return res.status(200).json({ message: 'Table deleted' });
 }

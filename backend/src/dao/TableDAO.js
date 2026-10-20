@@ -13,3 +13,7 @@ export async function findAllTables(filter = {}) {
 export async function findTableById(id) {
     return await Table.findById(id);
 }
+
+export async function deleteTable(id) {
+    return await Table.findByIdAndDelete(id);
+}
