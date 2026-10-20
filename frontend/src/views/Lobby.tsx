@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { SignUpView } from './SignUpView.tsx'
 import type { View } from '../components/types.ts'
-import { TableCreation } from './TableCreation.tsx'
+import { TableCreation , type PokerTableData} from './TableCreation.tsx'
+
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -10,8 +11,6 @@ type LobbyProps = {
 
 
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
-
-type PokerTableData = (typeof TABLES)[number]
 
 
 function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: string; sub: string; accent?: boolean }) {
@@ -60,7 +59,7 @@ function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: s
   )
 }
 
-const TABLES = [
+const INITIAL_TABLES = [
   { id: 1, name: 'Velvet Room',    stakes: 'low',    blind: '1 / 2',     players: 4, max: 6, status: 'active',  avgPot: '$18',   hands: 142 },
   { id: 2, name: 'The Boneyard',   stakes: 'medium', blind: '5 / 10',    players: 3, max: 6, status: 'active',  avgPot: '$87',   hands: 58  },
   { id: 3, name: 'Crimson Lounge', stakes: 'high',   blind: '25 / 50',   players: 5, max: 6, status: 'active',  avgPot: '$420',  hands: 31  },
@@ -92,8 +91,9 @@ export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
+  const [tables, setTables] = useState<PokerTableData[]>(INITIAL_TABLES)
 
-  const filtered = filter === 'all' ? TABLES : TABLES.filter(t => t.stakes === filter)
+  const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
@@ -144,11 +144,11 @@ export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
               Game Lobby
             </h1>
             <p className="text-sm mt-1" style={{ color: '#e8e4dc', opacity: 0.35 }}>
-              {TABLES.filter(t => t.status !== 'full').length} tables with open seats
+              {tables.filter(t => t.status !== 'full').length} tables with open seats
             </p>
           </div>
            <button
-            onClick= { onCreateTable }
+            onClick= { () => setShowCreateTable(true) }
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
             style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff', border: '1px solid #c0392b' }}
           >
@@ -337,6 +337,16 @@ export function Lobby({ onBack, onJoin, onCreateTable }: LobbyProps) {
 
       {/* Bottom line */}
       <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #c0392b 30%, #c0392b 70%, transparent)' }} />
+      {showCreateTable && (
+        <TableCreation
+          onClose={() => setShowCreateTable(false)}
+          onCreate={table => {
+            setTables(prev => [table, ...prev])
+            setShowCreateTable(false)
+            onJoin(table)
+          }}
+        />
+      )}
     </div>
   )
 }
