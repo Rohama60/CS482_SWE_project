@@ -27,7 +27,7 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
         const result = await response.json()
         
         if (!response.ok) {
-          throw new Error(result.message || 'Failed to sign up')
+          throw new Error(result.error || result.message || 'Failed to sign up')
         }
         console.log('Sign up successful')
         onClose() 

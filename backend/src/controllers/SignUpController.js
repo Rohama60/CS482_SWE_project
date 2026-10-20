@@ -20,16 +20,14 @@ export async function SignUpController(req, res){
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const newAccount = await createAccount({
+    await createAccount({
         name,
         email,
         username,
         passwordHash
     });
-    
-    await createAccount(newAccount);
 
     return res.status(200).json({
-      message: 'Signup information validated'
+      message: 'Account created successfully'
     });
   }

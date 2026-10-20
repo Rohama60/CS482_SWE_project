@@ -370,7 +370,6 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
       </div>
 
       {/* Bottom line */}
-      <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #c0392b 30%, #c0392b 70%, transparent)' }} />
       {showCreateTable && (
         <TableCreation
           onClose={() => setShowCreateTable(false)}
