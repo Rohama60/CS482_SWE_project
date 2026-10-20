@@ -106,13 +106,16 @@ export function Lobby({ onBack, onJoin, onCreateTable , onSignUp }: LobbyProps) 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#1c1e25' }}>
         <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm transition-opacity hover:opacity-70"
-            style={{ color: '#e8e4dc', opacity: 0.5 }}
-          >
-            ← Back
-          </button>
+        <button
+             onClick={onBack}
+             className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5 hover:brightness-125"
+              style={{
+                backgroundColor: '#1c1e25',
+                border: 'none',
+                color: '#fff'
+              }} >
+              ← Back
+            </button>
           <div className="w-px h-4" style={{ background: '#2a2d38' }} />
           <div className="flex items-center gap-2">
             <span style={{ color: '#c0392b' }}>♠</span>

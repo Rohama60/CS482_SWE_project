@@ -68,8 +68,8 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             <div className="flex items-center gap-3">
             <button
                 onClick={() => console.log('Log In clicked')}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5"
-                style={{ color: '#e8e4dc', border: '1px solid #2a2d38' }}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5 hover:bg-white/5 hover:brightness-125"
+                style={{ background: 'linear-gradient(135deg, #1c1e25 0%, #131418 100%)', color: '#e8e4dc', border: '1px solid #2a2d38' }}
             >
                 Sign In
             </button>

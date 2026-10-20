@@ -41,9 +41,9 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
  
   return (
      
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(2px)' }}>
       <div className="relative w-full max-w-sm mx-4 rounded-2xl p-8" style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-xl opacity-40 hover:opacity-80 transition-opacity" style={{ color: '#e8e4dc' }}>✕</button>
+        <button onClick={onClose} className="absolute top-4 right-4 text-xl bg-transparentborder-none opacity-40 hover:opacity-80 transition-opacity" style={{ background : '#1c1e25', border : 'none',color: '#d4c6c6' }}>✕</button>
         <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Join the table</h2>
         <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Create your account to track wins</p>
         <div className="space-y-4">
