@@ -11,7 +11,8 @@
     "build": "vite build frontend --config frontend/vite.config.ts",
     "preview": "vite preview frontend --config frontend/vite.config.ts",
     "format": "oxfmt",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage"
   },
   "repository": {
     "type": "git",

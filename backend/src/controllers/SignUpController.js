@@ -9,10 +9,15 @@ export async function SignUpController(req, res){
     }
     
     const existingEmail = await findAccountByEmail(email);
+    
+    
     if(existingEmail){
-        return res.status(400).json({ error: 'Email already in use' });
+        return res.status(409).json({ error: 'Email already in use' });
     }
     
+    console.log("Checking email:", email);
+    console.log("Existing account:", existingEmail);
+
     const existingUsername = await findAccountByUsername(username);
     if(existingUsername){
         return res.status(409).json({ error: 'Username already in use' });

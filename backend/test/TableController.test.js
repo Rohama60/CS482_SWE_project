@@ -1,10 +1,5 @@
 
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
-import mongoose from 'mongoose';
-
-
-import { deleteTable } from '../src/dao/TableDAO.js';
-
 
 
 const mockDeleteTable = jest.fn();
