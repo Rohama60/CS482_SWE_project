@@ -17,3 +17,7 @@ export async function findTableById(id) {
 export async function deleteTable(id) {
     return await Table.findByIdAndDelete(id);
 }
+
+export async function updateTable(id, updateData) {
+    return await Table.findByIdAndUpdate(id, updateData, { new: true });
+}

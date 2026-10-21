@@ -15,8 +15,6 @@ export async function SignUpController(req, res){
         return res.status(409).json({ error: 'Email already in use' });
     }
     
-    console.log("Checking email:", email);
-    console.log("Existing account:", existingEmail);
 
     const existingUsername = await findAccountByUsername(username);
     if(existingUsername){

@@ -15,6 +15,10 @@ await import('../src/controllers/SignUpController.js');
 const { findAccountByEmail, findAccountByUsername, createAccount } = await import('../src/dao/AccountDAO.js');
 describe("Sign Up Testing", () => {
     
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
     test("Successful sign up", async () => {
         const req = {
             body: {
@@ -82,6 +86,38 @@ describe("Sign Up Testing", () => {
         expect(duplicateEmailRes.status).toHaveBeenCalledWith(409);
         expect(duplicateEmailRes.json).toHaveBeenCalledWith({
             error: 'Email already in use'
+        });
+        expect(createAccount).not.toHaveBeenCalled();
+       
+
+    });
+
+    test("Username already in use", async () => {
+        findAccountByEmail.mockResolvedValue(null); // No duplicate email
+        findAccountByUsername.mockResolvedValue({
+                name: "Cool",
+                username: "upperuser",
+                email: "testuser1@example.com",
+                password: "powerfulpassword"
+        });
+       
+        const req = {
+            body: {
+                name : "Nice",
+                username: "upperuser",
+                email: "different@example.com",
+                password: "powerfulpassword"
+            }
+        };
+        const res = {
+            status: jest.fn().mockReturnThis(),
+            json: jest.fn()
+        };
+        await SignUpController(req, res);
+        
+        expect(res.status).toHaveBeenCalledWith(409);
+        expect(res.json).toHaveBeenCalledWith({
+            error: 'Username already in use'
         });
         expect(createAccount).not.toHaveBeenCalled();
        
