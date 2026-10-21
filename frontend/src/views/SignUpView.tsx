@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
+import { authClient } from '../AuthClient'
 
 export function SignUpView({ onClose }: { onClose: () => void }) {
  
@@ -8,36 +9,28 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  async function handleSignUp() {
-        try {
-          setError('')
-        
-        const response = await fetch('http://localhost:3000/api/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-             name, 
-             email, 
-             username, 
-             password 
-          })
-        })
-        const result = await response.json()
-        
-        if (!response.ok) {
-          throw new Error(result.error || result.message || 'Failed to sign up')
-        }
-        console.log('Sign up successful')
-        onClose() 
+  async function handleSignUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError('')
+
+    try {
+      const result = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        username,
+      })
+
+      if (result.error) {
+        setError(result.error.message || 'Failed to sign up')
+        return
       }
-      catch (err) {
-        if (err instanceof Error) {
-          setError(err.message)
-        }
-      }
+
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign up')
     }
+  }
  
   return (
      
@@ -46,7 +39,7 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} className="absolute top-4 right-4 text-xl bg-transparentborder-none opacity-40 hover:opacity-80 transition-opacity" style={{ background : '#1c1e25', border : 'none',color: '#d4c6c6' }}>✕</button>
         <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Join the table</h2>
         <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Create your account to track wins</p>
-        <div className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSignUp}>
           <div>
             <label className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>NAME</label>
             <input
@@ -101,7 +94,7 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
             />
           </div>
           <button
-            onClick={handleSignUp}
+            type="submit"
             
             className="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:brightness-110 active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b' }}
@@ -109,7 +102,7 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
             Create Account
           </button>
           {error && (<p className="text-xs mt-2 text-red-400">{error}</p>)}
-        </div>
+        </form>
         <p className="text-center text-xs mt-5 opacity-40" style={{ color: '#e8e4dc' }}>
           Already have an account?{' '}
           <span className="underline cursor-pointer" style={{ color: '#c0392b', opacity: 1 }}>Sign in</span>
