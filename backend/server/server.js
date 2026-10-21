@@ -4,6 +4,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { CreateTableController , GetTablesController, GetTableByIdController } from '../src/controllers/TableController.js';
+import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
 
 dotenv.config();
 
@@ -23,6 +24,11 @@ app.post('/api/signup', (req,res,next) => {
 app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
 app.get('/api/tables/:id', GetTableByIdController);
+
+app.patch('/api/users/mute', PlayerMuteMusicController);
+app.post('/api/complaints', FileComplaintController);
+app.post('/api/auth/reset-password', SelfPasswordResetController);
+app.post('/api/admin/reset-password', AdminPasswordResetController);
 
 
 async function startingServer() {
