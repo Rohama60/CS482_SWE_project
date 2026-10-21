@@ -2,9 +2,13 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController} from '../src/controllers/TableController.js';
+import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,6 +28,13 @@ app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
 app.get('/api/tables/:id', GetTableByIdController);
 app.delete('/api/tables/:id', DeleteTableController);
+
+
+app.patch('/api/users/mute', PlayerMuteMusicController);
+app.post('/api/complaints', FileComplaintController);
+app.post('/api/auth/reset-password', SelfPasswordResetController);
+app.post('/api/admin/reset-password', AdminPasswordResetController);
+
 
 async function startingServer() {
     try{
