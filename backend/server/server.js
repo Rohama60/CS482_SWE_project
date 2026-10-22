@@ -7,6 +7,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
+import { JoinTableController, JoinByCodeController } from '../src/controllers/JoinTableController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
 
@@ -33,6 +34,8 @@ app.post('/api/signup', SignUpController);
 app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
 app.get('/api/tables/mine', GetMyTablesController);
+app.post('/api/tables/join-code', JoinByCodeController);
+app.post('/api/tables/:id/join', JoinTableController);
 app.get('/api/tables/:id', GetTableByIdController);
 app.put('/api/tables/:id', UpdateTableController);
 app.delete('/api/tables/:id', DeleteTableController);

@@ -25,6 +25,7 @@ export type PokerTableData = {
   hands: number
   bots?: number
   isPrivate?: boolean
+  inviteCode?: string | null
 }
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {
