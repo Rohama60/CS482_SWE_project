@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 export function MemberResetForm() {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [message, setMessage] = useState('');
 
-  const handleReset = async (e) => {
+  const handleReset = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const res = await fetch('/api/auth/reset-password', {
       method: 'POST',
@@ -64,7 +64,7 @@ export function AdminResetForm() {
   const [newPassword, setNewPassword] = useState('');
   const [status, setStatus] = useState('');
 
-  const handleAdminReset = async (e) => {
+  const handleAdminReset = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const res = await fetch('/api/admin/reset-password', {
       method: 'POST',

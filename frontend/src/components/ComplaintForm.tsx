@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
-export function ComplaintForm({ reporterId }) {
+export function ComplaintForm({ reporterId }: { reporterId: string }) {
   const [reportedUsername, setReportedUsername] = useState('');
   const [reason, setReason] = useState('Harassment');
   const [details, setDetails] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const res = await fetch('/api/complaints', {
       method: 'POST',
