@@ -1,18 +1,18 @@
+import {jest, describe, it, expect, beforeEach }  from '@jest/globals';
+import { APIError }  from 'better-auth/api';
 
+const mockSignUpEmail = jest.fn();
 
-import {jest, describe, it, expect }  from '@jest/globals';
-
-jest.unstable_mockModule('../src/dao/AccountDAO.js', () => ({
-    createAccount: jest.fn(),
-    findAccountByEmail: jest.fn(),
-    findAccountByUsername: jest.fn()
+jest.unstable_mockModule('../src/Auth.js', () => ({
+    auth: {
+        api: {
+            signUpEmail: mockSignUpEmail
+        }
+    }
 }));
 
+const { SignUpController } = await import('../src/controllers/SignUpController.js');
 
-
-const { SignUpController } =
-await import('../src/controllers/SignUpController.js');
-const { findAccountByEmail, findAccountByUsername, createAccount } = await import('../src/dao/AccountDAO.js');
 describe("Sign Up Testing", () => {
     
     beforeEach(() => {
@@ -20,107 +20,131 @@ describe("Sign Up Testing", () => {
     });
 
     test("Successful sign up", async () => {
-        const req = {
-            body: {
-                name : "Test User",
-                username: "testuser",
-                email: "testuser@example.com",
-                password: "password123"
-            }
-        }
+        mockSignUpEmail.mockResolvedValue({
+            response: {
+                message: 'Account created successfully' 
+            },
 
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
+            headers: new Headers()
+     });
+     
+     const req = {
+        headers: new Headers(),
+        body: {
+            name : "Test User",
+            username: "testuser",
+            email: "testuser@example.com",
+            password: "password123"
         }
+    };
 
-        await SignUpController(req, res);
-        expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({
-            message: 'Account created successfully'
-        });
+    const res = {
+        setHeader: jest.fn(),
+         status: jest.fn().mockReturnThis(),
+         json: jest.fn()
+    };
+
+    await SignUpController(req, res);
+
+    expect(mockSignUpEmail).toHaveBeenCalledWith({
+        body: req.body,
+        headers: req.headers,
+        returnHeaders: true
     });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+         message: 'Account created successfully'
+     });
+ });
     
-    test("Missing required fields", async () => {
-        const req = {
-            body: {
-                name : "Test User",
-                username: "testuser",
-                email: "",
-                password: "password123"
-            }
+ test("Missing required fields", async () => {
+    const req = {
+        headers: {},
+         body: {
+            name : "Test User",
+            username: "testuser",
+            email: "",
+            password: "password123"
+         }
+     };
+
+    const res = {
+        setHeader: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+     };
+        
+    await SignUpController(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+        error: 'Missing required fields'
+    });
+    expect(mockSignUpEmail).not.toHaveBeenCalled();
+});
+    
+test("Email already in use", async () => {
+    mockSignUpEmail.mockRejectedValue(
+        new APIError('CONFLICT',{
+            message: 'Email already in use',
+        })
+    );
+    
+    const req = {
+        headers: {},
+        body: {
+            name : "Nice",
+            username: "loweruser",
+            email: "testuser@example.com",
+            password: "powerfulpassword"
         }
+    };
 
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
+    const res = {
+        setHeader: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+    };
+
+    await SignUpController(req, res);
+        
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+        error: 'Email already in use'
+    });
+       
+});
+
+test("Username already in use", async () => {
+    mockSignUpEmail.mockRejectedValue(
+        new APIError('CONFLICT',{
+            message: 'Username already in use',
+        })
+    );
+
+    const req = {
+        headers: {},
+        body: {
+            name : "Nice",
+            username: "upperuser",
+            email: "different@example.com",
+            password: "powerfulpassword"
         }
+    };
+
+    const res = {
+        setHeader: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+    };
         
-        await SignUpController(req, res);
-        expect(res.status).toHaveBeenCalledWith(400);
-    });
-    test("Email already in use", async () => {
-          
-        findAccountByEmail.mockResolvedValue({
-                name: "Cool",
-                username: "upperuser",
-                email: "testuser@example.com"
-        });
-
-
-       
-        const duplicateEmailReq = {
-            body: {
-                name : "Nice",
-                username: "loweruser",
-                email: "testuser@example.com",
-                password: "powerfulpassword"
-            }
-        };
-        const duplicateEmailRes = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        await SignUpController(duplicateEmailReq, duplicateEmailRes);
+    await SignUpController(req, res);
         
-        expect(duplicateEmailRes.status).toHaveBeenCalledWith(409);
-        expect(duplicateEmailRes.json).toHaveBeenCalledWith({
-            error: 'Email already in use'
-        });
-        expect(createAccount).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+        error: 'Username already in use'
+     });
        
-
-    });
-
-    test("Username already in use", async () => {
-        findAccountByEmail.mockResolvedValue(null); // No duplicate email
-        findAccountByUsername.mockResolvedValue({
-                name: "Cool",
-                username: "upperuser",
-                email: "testuser1@example.com",
-                password: "powerfulpassword"
-        });
-       
-        const req = {
-            body: {
-                name : "Nice",
-                username: "upperuser",
-                email: "different@example.com",
-                password: "powerfulpassword"
-            }
-        };
-        const res = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn()
-        };
-        await SignUpController(req, res);
-        
-        expect(res.status).toHaveBeenCalledWith(409);
-        expect(res.json).toHaveBeenCalledWith({
-            error: 'Username already in use'
-        });
-        expect(createAccount).not.toHaveBeenCalled();
-       
-
-    });
-})
+});
+});
