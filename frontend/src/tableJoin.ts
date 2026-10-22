@@ -22,3 +22,28 @@ export function joinTable(tableId: string | number, inviteCode?: string) {
 export function joinTableByCode(inviteCode: string) {
   return sendJoin('/api/tables/join-code', { inviteCode })
 }
+
+// P3: watch a table without taking a seat. Works on full tables too.
+export async function spectateTable(tableId: string | number, inviteCode?: string): Promise<{ table: PokerTableData; role: 'spectator' | 'player' }> {
+  const guest = getGuest()
+  const res = await fetch(`/api/tables/${tableId}/spectate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ inviteCode, guestId: guest?.id }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Could not watch the table')
+  return { table: data.table, role: data.role }
+}
+
+// P3: leave spectator mode. Errors are ignored since the player is leaving anyway.
+export async function stopSpectating(tableId: string | number): Promise<void> {
+  const guest = getGuest()
+  await fetch(`/api/tables/${tableId}/stop-spectating`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ guestId: guest?.id }),
+  }).catch(() => {})
+}

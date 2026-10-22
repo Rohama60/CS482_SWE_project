@@ -2,10 +2,11 @@ import { useState , useEffect} from 'react'
 import { TableCreation , type PokerTableData, type TableConfig} from './TableCreation.tsx'
 import { authClient } from '../../lib/auth-client.ts'
 import { getGuest } from '../guestSession.ts'
-import { joinTable, joinTableByCode } from '../tableJoin.ts'
+import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
+  onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
 };
 
@@ -77,7 +78,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
     </div>
   )
 }
-export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const {data: session, isPending} = authClient.useSession()
   const guest = getGuest()
   
@@ -162,6 +163,23 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
       onJoin(updated)
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Could not join the table')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  // P3: watch a table, including full ones
+  async function handleSpectate(table: PokerTableData) {
+    if (joining) return
+    setJoining(true)
+    try {
+      const { table: updated, role } = await spectateTable(table.id)
+      rememberTable(updated)
+      // If they're already playing here, just take them to their seat
+      if (role === 'player') onJoin(updated)
+      else onSpectate(updated)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not watch the table')
     } finally {
       setJoining(false)
     }
@@ -658,6 +676,17 @@ async function handleUpdateTable(config: TableConfig) {
                       Take a Seat
                     </button>
                   )}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      handleSpectate(table)
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-125"
+                    style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38' }}
+                    title="Watch this table without taking a seat"
+                  >
+                    👁 Watch
+                  </button>
                 </div>
               </div>
             )

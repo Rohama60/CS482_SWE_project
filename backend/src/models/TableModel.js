@@ -20,6 +20,8 @@ const tableSchema = new mongoose.Schema({
     isPrivate: { type: Boolean, default: false },
     host: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },
     seats: { type: [seatSchema], default: [] },
+    // P3: people watching without a seat. They don't count toward max players.
+    spectators: { type: [seatSchema], default: [] },
     inviteCode: { type: String, default: null, index: true },
 }, { timestamps: true });
 

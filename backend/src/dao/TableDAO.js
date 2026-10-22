@@ -40,7 +40,26 @@ export async function addSeatIfOpen(id, seat) {
             $expr: { $lt: ['$players', '$max'] },
             'seats.refId': { $ne: seat.refId }
         },
-        { $push: { seats: seat }, $inc: { players: 1 } },
+        // P3: a spectator who takes a seat stops being a spectator
+        { $push: { seats: seat }, $inc: { players: 1 }, $pull: { spectators: { refId: seat.refId } } },
+        { returnDocument: 'after' }
+    );
+}
+
+// P3: start watching. $addToSet-style check on refId so the same person isn't listed twice.
+export async function addSpectator(id, spectator) {
+    return await Table.findOneAndUpdate(
+        { _id: id, 'spectators.refId': { $ne: spectator.refId } },
+        { $push: { spectators: spectator } },
+        { returnDocument: 'after' }
+    );
+}
+
+// P3: stop watching
+export async function removeSpectator(id, refId) {
+    return await Table.findByIdAndUpdate(
+        id,
+        { $pull: { spectators: { refId } } },
         { returnDocument: 'after' }
     );
 }
