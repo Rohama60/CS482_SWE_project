@@ -1,6 +1,7 @@
 import { useState , useEffect} from 'react'
 import { TableCreation , type PokerTableData, type TableConfig} from './TableCreation.tsx'
 import { authClient } from '../../lib/auth-client.ts'
+import { getGuest } from '../guestSession.ts'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -77,6 +78,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 }
 export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
   const {data: session, isPending} = authClient.useSession()
+  const guest = getGuest()
   
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<string | number | null>(null)
@@ -290,7 +292,7 @@ async function handleUpdateTable(config: TableConfig) {
                     />
 
                     <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>
-                        Guest · $500 chips
+                        {guest ? `${guest.displayName} · $${guest.chipamount} chips` : 'Guest · $500 chips'}
                     </span>
                 </div>
 

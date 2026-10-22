@@ -1,5 +1,6 @@
 import type { View } from '../components/types.ts'
 import { authClient} from '../AuthClient.ts'
+import { startGuestSession } from '../guestSession.ts'
 
 const SUITS = ['♠', '♥', '♦', '♣']
 
@@ -42,6 +43,16 @@ type HomeProps = {
 
 export default function Home({ view, setView, onSignUp }: HomeProps) {
     const { data: session, isPending } = authClient.useSession();
+
+    async function playAsGuest() {
+        try {
+            await startGuestSession()
+            setView('lobby')
+        } catch (error) {
+            console.error(error)
+            alert('Could not start a guest game. Is the backend running?')
+        }
+    }
 
     return (
     <div>
@@ -143,7 +154,7 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
 
             <button
-                onClick={() => setView('lobby')}
+                onClick={playAsGuest}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{
                 background: 'linear-gradient(135deg, #6b1010 0%, #450a0a 100%)',
