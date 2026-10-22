@@ -134,19 +134,65 @@ export async function DeleteTableController(req, res) {
     }
 }
 
-
 export async function UpdateTableController(req, res) {
-    const { id } = req.params;
-    const { name, stakes, players, seats, bots, isPrivate } = req.body;
-    
-    const table = await findTableById(id);
-    if (!table) {
-        return res.status(404).json({ error: 'Invalid table ID' });
-    }
-    const updatedTable = await updateTable(id, { name, stakes, players, seats, bots, isPrivate });
-    return res.status(200).json({ message: 'Table updated', table: updatedTable });
-}
+    try {
+        const { id } = req.params;
+        const { name, stakes, max, bots, isPrivate } = req.body;
 
+        const table = await findTableById(id);
+
+        if (!table) {
+            return res.status(404).json({
+                error: 'Invalid table ID'
+            });
+        }
+
+        const blindByStake = {
+            low: '1 / 2',
+            medium: '5 / 10',
+            high: '25 / 50'
+        };
+
+        if (
+            !['low', 'medium', 'high'].includes(stakes) ||
+            !Number.isInteger(max) ||
+            max < 2 ||
+            max > 6 ||
+            max < table.players ||
+            !Number.isInteger(bots) ||
+            bots < 0 ||
+            bots >= max ||
+            typeof name !== 'string' ||
+            !name.trim() ||
+            typeof isPrivate !== 'boolean'
+        ) {
+            return res.status(400).json({
+                error: 'Invalid table settings'
+            });
+        }
+
+        const updatedTable = await updateTable(id, {
+            name: name.trim(),
+            stakes,
+            max,
+            bots,
+            isPrivate,
+            blind: blindByStake[stakes]
+        });
+
+        return res.status(200).json({
+            message: 'Table updated',
+            table: updatedTable
+        });
+
+    } catch (error) {
+        console.error('Update table error:', error);
+
+        return res.status(500).json({
+            error: 'Failed to update table'
+        });
+    }
+}
 export async function GetMyTablesController(req, res) {
     try {
         const session = await auth.api.getSession({

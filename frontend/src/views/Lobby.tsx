@@ -20,6 +20,7 @@ function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: s
     setWatching(true)
     setTimeout(() => { setWatching(false); setDone(true) }, 2000)
   }
+  
 
   return (
     <div
@@ -82,6 +83,7 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [tables, setTables] = useState<PokerTableData[]>([])
   const [myTables, setMyTables] = useState<PokerTableData[]>([])
+  const [editingTable, setEditingTable] = useState<PokerTableData | null>(null)
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
  
 
@@ -171,6 +173,59 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
 
     } catch (error) {
         console.error('Failed to delete table:', error)
+        alert('Could not reach the server')
+    }
+}
+async function handleUpdateTable(config: TableConfig) {
+    if (!editingTable) return
+
+    try {
+        const res = await fetch(`/api/tables/${editingTable.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                name: config.name,
+                stakes: config.stakes,
+                max: config.seats,
+                isPrivate: config.isPrivate,
+                bots: config.Bots ? (config.botCount ?? 1) : 0
+            })
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+            alert(data.error || 'Failed to update table')
+            return
+        }
+
+        const updatedTable: PokerTableData = data.table
+
+        setMyTables(prev =>
+            prev.map(table =>
+                String(table.id) === String(updatedTable.id)
+                    ? updatedTable
+                    : table
+            )
+        )
+
+        setTables(prev => {
+            const otherTables = prev.filter(
+                table => String(table.id) !== String(updatedTable.id)
+            )
+
+            return updatedTable.isPrivate
+                ? otherTables
+                : [updatedTable, ...otherTables]
+        })
+
+        setEditingTable(null)
+
+    } catch (error) {
+        console.error('Failed to update table:', error)
         alert('Could not reach the server')
     }
 }
@@ -325,19 +380,14 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
             const isHovered = hovered === `mine-${table.id}`
             return (
               <div
-                key={table.id}
-                onClick={() => !isFull && onJoin(table)}
-                onMouseEnter={() => !isFull && setHovered(`mine-${table.id}`)}
-                onMouseLeave={() => setHovered(null)}
-                className="rounded-2xl p-5 transition-all duration-150 cursor-pointer"
-                style={{
-                  background: isHovered ? '#1f2029' : '#161820',
-                  border: `1px solid ${isHovered ? 'rgba(192,57,43,0.45)' : '#222430'}`,
-                  opacity: isFull ? 0.5 : 1,
-                  cursor: isFull ? 'not-allowed' : 'pointer',
-                  transform: isHovered ? 'translateY(-1px)' : 'none',
-                }}
-              >
+                      key={table.id}
+                      className="rounded-2xl p-5"
+                      style={{
+                          background: '#161820',
+                          border: '1px solid #222430',
+                          opacity: isFull ? 0.5 : 1,
+                      }}
+                  >
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-semibold text-base leading-tight" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
@@ -382,11 +432,13 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
                  <div className="flex flex-col items-center gap-2">
     {!isFull && (
         <button
+            onMouseEnter={() => setHovered(`mine-${table.id}`)}
+            onMouseLeave={() => setHovered(null)}
             onClick={e => {
                 e.stopPropagation()
                 onJoin(table)
             }}
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            className="w-full px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150"
             style={{
                 background: isHovered
                     ? 'linear-gradient(135deg, #c0392b, #8b1a1a)'
@@ -402,13 +454,26 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
             Take a Seat
         </button>
     )}
-
+    <button
+    onClick={e => {
+        e.stopPropagation()
+        setEditingTable(table)
+    }}
+    className="w-full px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all hover:brightness-125"
+    style={{
+        background: '#262333',
+        color: '#c4b5fd',
+        border: '1px solid #6960a1'
+    }}
+>
+    ✎ Edit Table
+</button>
     <button
         onClick={e => {
             e.stopPropagation()
             handleDelete(String(table.id))
         }}
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-125"
+        className="w-full px-4 py-1.5 rounded-lg text-xs font-semibold hover:brightness-110"
         style={{
             background: 'rgba(192,57,43,0.12)',
             color: '#ef4444',
@@ -457,15 +522,13 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
               <div
                 key={table.id}
               //  onClick={() => !isFull && onJoin(table)}
-                onMouseEnter={() => !isFull && setHovered(table.id)}
-                onMouseLeave={() => setHovered(null)}
-                className="rounded-2xl p-5 transition-all duration-150 cursor-pointer"
+               
+                className="rounded-2xl p-5 "
                 style={{
-                  background: isHovered ? '#1f2029' : '#161820',
-                  border: `1px solid ${isHovered ? 'rgba(192,57,43,0.45)' : '#222430'}`,
+                  background: '#161820',
+                  border: `1px solid  '#222430'}`,
                   opacity: isFull ? 0.5 : 1,
                   cursor: isFull ? 'not-allowed' : 'pointer',
-                  transform: isHovered ? 'translateY(-1px)' : 'none',
                 }}
               >
                 <div className="flex items-start justify-between mb-4">
@@ -580,6 +643,15 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
           onCreate={handleCreate}
         />
       )}
+      {editingTable && (
+    <TableCreation
+        key={String(editingTable.id)}
+        table={editingTable}
+        onClose={() => setEditingTable(null)}
+        onCreate={handleCreate}
+        onUpdate={handleUpdateTable}
+      />
+    )}  
     </div>
   )
 }

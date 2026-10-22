@@ -9,6 +9,7 @@ export type TableConfig = {
      seats: number
      isPrivate: boolean
      Bots: boolean
+     botCount: number
 
   }
 
@@ -44,18 +45,34 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 export function TableCreation({
   onClose,
   onCreate,
+  onUpdate,
+  table,
 }: {
   onClose: () => void
   onCreate: (table: TableConfig) => void
+  onUpdate?: (table: TableConfig) => void
+  table?: PokerTableData
 }) {
-
   
-  const [name, setName] = useState('Midnight Draw')
-  const [stakes, setStakes] = useState<'low' | 'medium' | 'high'>('low')
-  const [seats, setSeats] = useState(6)
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [addBots, setAddBots] = useState(false)
-  const [botCount, setBotsCount] = useState(1)
+  const isEditing = !!table
+
+  const [name, setName] = useState(table?.name ?? 'Midnight Draw')
+
+  const [stakes, setStakes] = useState<'low' | 'medium' | 'high'>(
+      table?.stakes === 'medium' || table?.stakes === 'high'
+          ? table.stakes
+          : 'low'
+  )
+
+  const [seats, setSeats] = useState(table?.max ?? 6)
+
+  const [isPrivate, setIsPrivate] = useState(table?.isPrivate ?? false)
+
+  const [addBots, setAddBots] = useState((table?.bots ?? 0) > 0)
+
+  const [botCount, setBotsCount] = useState(
+      table?.bots && table.bots > 0 ? table.bots : 1
+  )
 
   const maxBots = seats - 1
   const bots = addBots ? botCount : 0
@@ -69,15 +86,22 @@ export function TableCreation({
   const buyInByStake = { low: '$100', medium: '$500', high: '$2,500' }
   const tableName = name.trim() || 'Untitled Table'
 
-  function handleCreate() {
-    onCreate({
-      name: tableName,
-      stakes,
-      seats,
-      isPrivate,
-      Bots: addBots,
-    })
-  }
+  function handleSubmit() {
+    const config: TableConfig = {
+        name: tableName,
+        stakes,
+        seats,
+        isPrivate,
+        Bots: addBots,
+        botCount: bots
+    }
+
+    if (isEditing) {
+        onUpdate?.(config)
+    } else {
+        onCreate(config)
+    }
+}
 
   return (
     <div
@@ -99,12 +123,10 @@ export function TableCreation({
           <div>
             <div className="d-flex align-items-center gap-2 mb-2">
               <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table setup</span>
-              <span className="rounded-pill px-2 py-1" style={{ fontSize: '0.65rem', color: '#d5a39e', background: 'rgba(192,57,43,0.13)', border: '1px solid rgba(192,57,43,0.25)' }}>
-                MOCKUP
-              </span>
+  
             </div>
             <h2 id="create-table-title" className="m-0 text-2xl font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>
-              Create your table
+              {isEditing ? 'Update your table' : 'Create your table'}
             </h2>
             <p className="m-0 mt-1 text-sm" style={{ color: '#e8e4dc', opacity: 0.42 }}>Set the rules, invite players, and take the first seat.</p>
           </div>
@@ -277,11 +299,14 @@ export function TableCreation({
 
             <div className="mt-auto">
               <button
-                onClick={handleCreate}
+                onClick={handleSubmit}
                 className="w-100 rounded-xl py-3 border-0 text-sm font-semibold transition-all hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }}
+                style={{
+                background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                color: '#fff'
+               }}
               >
-                Create &amp; take a seat
+                {isEditing ? 'Update Table' : 'Create & take a seat'}
               </button>
               <p className="text-center mt-2 mb-0" style={{ color: '#e8e4dc', opacity: 0.3, fontSize: '0.68rem' }}>No chips are charged in this mockup.</p>
             </div>
