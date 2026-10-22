@@ -7,6 +7,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
+import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
 
 dotenv.config();
@@ -36,6 +37,8 @@ app.get('/api/tables/:id', GetTableByIdController);
 app.put('/api/tables/:id', UpdateTableController);
 app.delete('/api/tables/:id', DeleteTableController);
 
+app.post('/api/guests', CreateGuestController);
+app.get('/api/guests/:id', GetGuestByIdController);
 
 app.patch('/api/users/mute', PlayerMuteMusicController);
 app.post('/api/complaints', FileComplaintController);

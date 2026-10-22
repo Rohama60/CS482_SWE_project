@@ -1,6 +1,8 @@
 import type { View } from '../components/types.ts'
 import { authClient} from '../AuthClient.ts'
-
+import { startGuestSession } from '../guestSession.ts'
+import { useState } from 'react'
+import { AudioSettings } from '../components/AudioSettings.tsx'
 const SUITS = ['♠', '♥', '♦', '♣']
 
  const bgCards = [
@@ -35,13 +37,26 @@ type HomeProps = {
     view: View
     setView: (view: View) => void
     onSignUp: () => void
+    onSignIn: () => void
 
 }
 
 
 
-export default function Home({ view, setView, onSignUp }: HomeProps) {
-    const { data: session, isPending } = authClient.useSession();
+export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
+    const { data: session } = authClient.useSession();
+
+    const [showDropdown, setShowDropdown] = useState(false)
+
+    async function playAsGuest() {
+        try {
+            await startGuestSession()
+            setView('lobby')
+        } catch (error) {
+            console.error(error)
+            alert('Could not start a guest game. Is the backend running?')
+        }
+    }
 
     return (
     <div>
@@ -77,7 +92,19 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
         </span>
     </div>
 
-    <div className="flex items-center gap-3">
+    <div className="relative flex items-center gap-3">
+        <button
+            onClick={() => setShowDropdown(previous => !previous)}
+            className="px-4 py-2 text-sm rounded-lg transition-all hover:bg-white/5"
+            style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38' }}
+        >
+            🔊 Audio ▾
+        </button>
+        {showDropdown && (
+            <div className="absolute right-0 top-12 z-20 w-80 rounded-xl p-3 shadow-2xl" style={{ background: '#131418', border: '1px solid #2a2d38' }}>
+                <AudioSettings userId={session?.user?.id ?? ''} />
+            </div>
+        )}
         { session?.user ? (
             <>
                 <span className="px-4 py-2 text-sm text-white rounded-lg bg-[#1c1e25]">
@@ -91,7 +118,7 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
         ) : (
             <>
                 <button
-                    onClick={() => console.log('Log In clicked')}
+                    onClick={onSignIn}
                     className="px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5"
                     style={{
                         background: 'linear-gradient(135deg, #1c1e25 0%, #131418 100%)',
@@ -143,7 +170,7 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
 
             <button
-                onClick={() => setView('lobby')}
+                onClick={playAsGuest}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{
                 background: 'linear-gradient(135deg, #6b1010 0%, #450a0a 100%)',
@@ -156,7 +183,7 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             </button>
 
             <button
-                onClick={() => console.log('Log In clicked')}
+                onClick={onSignIn}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}
                 onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.5)')}

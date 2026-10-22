@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react'
 
-export function SignUpView({ onClose }: { onClose: () => void }) {
-  
+export function SignUpView({
+  onClose,
+  onSuccess
+}: {
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
@@ -15,19 +20,21 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
     setIsSubmitting(true)
 
     try {
-        const response = await fetch('/api/signup', {        method: 'POST',
+        const response = await fetch('/api/signup', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ name, email, password, username }),
       })
 
       const result = await response.json().catch(() => ({}))
+
       if (!response.ok) {
         setError(result.error || 'Failed to sign up')
         return
       }
+      console.log("Signup successful! Redirecting to lobby")
+      onSuccess()
 
-      onClose()
     } catch (err) {
       console.error("SIGNUP FETCH ERROR:", err);
 
