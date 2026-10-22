@@ -1,34 +1,39 @@
 import { useState, type FormEvent } from 'react'
-import { authClient } from '../AuthClient'
 
 export function SignUpView({ onClose }: { onClose: () => void }) {
- 
+  
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+    setIsSubmitting(true)
 
     try {
-      const result = await authClient.signUp.email({
-        name,
-        email,
-        password,
-        username,
+        const response = await fetch('/api/signup', {        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, password, username }),
       })
 
-      if (result.error) {
-        setError(result.error.message || 'Failed to sign up')
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setError(result.error || 'Failed to sign up')
         return
       }
 
       onClose()
     } catch (err) {
+      console.error("SIGNUP FETCH ERROR:", err);
+
       setError(err instanceof Error ? err.message : 'Failed to sign up')
+    } finally {
+      setIsSubmitting(false)
     }
   }
  
@@ -95,11 +100,12 @@ export function SignUpView({ onClose }: { onClose: () => void }) {
           </div>
           <button
             type="submit"
+            disabled={isSubmitting}
             
             className="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:brightness-110 active:scale-[0.98]"
             style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b' }}
           >
-            Create Account
+            {isSubmitting ? 'Creating Account...' : 'Create Account'}
           </button>
           {error && (<p className="text-xs mt-2 text-red-400">{error}</p>)}
         </form>

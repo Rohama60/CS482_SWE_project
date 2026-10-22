@@ -5,7 +5,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
-import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController} from '../src/controllers/TableController.js';
+import { SignUpController } from '../src/controllers/SignUpController.js';
+import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController} from '../src/controllers/TableController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
 
 dotenv.config();
@@ -22,10 +23,15 @@ app.use(cors({
 
 app.all('/api/auth/{*splat}', toNodeHandler(auth));
 app.use(express.json());
+app.use((req, res, next) => {
+    console.log("REQUEST RECEIVED:", req.method, req.url);
+    next();
+});
 
-
+app.post('/api/signup', SignUpController);
 app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
+app.get('/api/tables/mine', GetMyTablesController);
 app.get('/api/tables/:id', GetTableByIdController);
 app.delete('/api/tables/:id', DeleteTableController);
 

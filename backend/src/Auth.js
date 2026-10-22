@@ -27,10 +27,24 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user, context) => {
-          const account = await Account.create(
-            { userId: user.id, displayName: user.name, chipamount: 500 }
+          await Account.findOneAndUpdate(
+            { userId: user.id },
+            {
+              $set: {
+                email: user.email,
+                username: user.username,
+                displayName: user.name,
+              },
+              $setOnInsert: {
+                chipamount: 500,
+              },
+            },
+            {
+              upsert: true,
+              returnDocument: 'after',
+              setDefaultsOnInsert: true,
+            },
           );
-          
         },
       },
     },

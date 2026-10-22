@@ -1,4 +1,5 @@
 import type { View } from '../components/types.ts'
+import { authClient} from '../AuthClient.ts'
 
 const SUITS = ['♠', '♥', '♦', '♣']
 
@@ -36,9 +37,13 @@ type HomeProps = {
     onSignUp: () => void
 
 }
+
+
+
 export default function Home({ view, setView, onSignUp }: HomeProps) {
-   
- return (
+    const { data: session, isPending } = authClient.useSession();
+
+    return (
     <div>
         
     <div className="min-h-screen relative overflow-hidden flex flex-col" style={{ background: '#0a0a0b' }}>
@@ -57,31 +62,60 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             <FloatingCard key={i} suit={c.suit} rank={c.rank} style={c.style} />
         ))}
 
-        {/* Nav */}
-        <nav className="relative z-10 flex items-center justify-between px-8 py-5">
-            <div className="flex items-center gap-2.5">
-            <span className="text-xl" style={{ color: '#c0392b' }}>♠</span>
-            <span style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc', fontSize: '1rem', letterSpacing: '0.2em', textTransform: 'uppercase', fontWeight: 600 }}>
-                Royal Draw
-            </span>
-            </div>
-            <div className="flex items-center gap-3">
-            <button
-                onClick={() => console.log('Log In clicked')}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5 hover:bg-white/5 hover:brightness-125"
-                style={{ background: 'linear-gradient(135deg, #1c1e25 0%, #131418 100%)', color: '#e8e4dc', border: '1px solid #2a2d38' }}
-            >
-                Sign In
-            </button>
-            <button
-                onClick={onSignUp}
-                className="px-4 py-2 text-sm font-semibold rounded-lg transition-all hover:brightness-110"
-                style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b' }}
-            >
-                Create Account
-            </button>
-            </div>
-        </nav>
+       <nav className="relative z-10 flex items-center justify-between px-8 py-5">
+    <div className="flex items-center gap-2.5">
+        <span className="text-xl" style={{ color: '#c0392b' }}>♠</span>
+        <span style={{
+            fontFamily: 'var(--font-display)',
+            color: '#e8e4dc',
+            fontSize: '1rem',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            fontWeight: 600
+        }}>
+            Royal Draw
+        </span>
+    </div>
+
+    <div className="flex items-center gap-3">
+        { session?.user ? (
+            <>
+                <span className="px-4 py-2 text-sm text-white rounded-lg bg-[#1c1e25]">
+                    👤 {session.user.name}
+                </span>
+
+                <span className="px-4 py-2 text-sm text-yellow-400 rounded-lg bg-[#1c1e25]">
+                    🪙 500 Chips
+                </span>
+            </>
+        ) : (
+            <>
+                <button
+                    onClick={() => console.log('Log In clicked')}
+                    className="px-4 py-2 text-sm font-medium rounded-lg transition-all hover:bg-white/5"
+                    style={{
+                        background: 'linear-gradient(135deg, #1c1e25 0%, #131418 100%)',
+                        color: '#e8e4dc',
+                        border: '1px solid #2a2d38'
+                    }}
+                >
+                    Sign In
+                </button>
+
+                <button
+                    onClick={onSignUp}
+                    className="px-4 py-2 text-sm font-semibold rounded-lg transition-all hover:brightness-110"
+                    style={{
+                        background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                        color: '#0a0a0b'
+                    }}
+                >
+                    Create Account
+                </button>
+            </>
+        )}
+    </div>
+</nav>
 
         {/* Hero */}
         <main className="relative z-10 flex flex-col items-center justify-center flex-1 px-6 py-16 text-center">
@@ -134,7 +168,7 @@ export default function Home({ view, setView, onSignUp }: HomeProps) {
             </button>
 
             <button
-                onClick={() => setView('signup')}
+                onClick={onSignUp}
                 className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
                 style={{
                 background: 'linear-gradient(135deg, rgba(192,57,43,0.14) 0%, rgba(139,26,26,0.08) 100%)',

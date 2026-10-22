@@ -1,8 +1,6 @@
 import { useState , useEffect} from 'react'
-import { SignUpView } from './SignUpView.tsx'
-import type { View } from '../components/types.ts'
 import { TableCreation , type PokerTableData, type TableConfig} from './TableCreation.tsx'
-
+import { authClient } from '../../lib/auth-client.ts'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -59,17 +57,6 @@ function AdSlot({ chips, label, sub, accent = false }: { chips: string; label: s
   )
 }
 
-const INITIAL_TABLES = [
-  { id: 1, name: 'Velvet Room',    stakes: 'low',    blind: '1 / 2',     players: 4, max: 6, status: 'active',  avgPot: '$18',   hands: 142 },
-  { id: 2, name: 'The Boneyard',   stakes: 'medium', blind: '5 / 10',    players: 3, max: 6, status: 'active',  avgPot: '$87',   hands: 58  },
-  { id: 3, name: 'Crimson Lounge', stakes: 'high',   blind: '25 / 50',   players: 5, max: 6, status: 'active',  avgPot: '$420',  hands: 31  },
-  { id: 4, name: 'Lucky Draw',     stakes: 'low',    blind: '1 / 2',     players: 2, max: 6, status: 'active',  avgPot: '$12',   hands: 209 },
-  { id: 5, name: 'Dead Man\'s Hand',stakes:'medium', blind: '5 / 10',    players: 6, max: 6, status: 'full',    avgPot: '$95',   hands: 77  },
-  { id: 6, name: 'High Roller',    stakes: 'high',   blind: '100 / 200', players: 2, max: 6, status: 'active',  avgPot: '$1,840',hands: 12  },
-  { id: 7, name: 'Parlor No. 7',   stakes: 'low',    blind: '1 / 2',     players: 1, max: 6, status: 'waiting', avgPot: '—',     hands: 0   },
-  { id: 8, name: 'Iron Curtain',   stakes: 'medium', blind: '10 / 20',   players: 4, max: 6, status: 'active',  avgPot: '$155',  hands: 44  },
-]
-
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
@@ -88,26 +75,52 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
   )
 }
 export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
+  const {data: session, isPending} = authClient.useSession()
+  
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [tables, setTables] = useState<PokerTableData[]>([])
-
+  const [myTables, setMyTables] = useState<PokerTableData[]>([])
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
  
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/tables')
+    fetch('/api/tables')
       .then(res => res.json())
       .then(data => setTables(data.tables))
       .catch(err => console.error('Failed to load tables', err))
   }, [])
+   useEffect(() => {
+    if (!session?.user) {
+      setTables([])
+      return
+    }
+
+    let cancelled = false
+    
+    async function loadMyTables() {
+      try {
+        const res = await fetch('/api/tables/mine', { credentials: 'include' })
+        
+        if (!res.ok) throw new Error(`Failed to load hosted tables: ${res.status}`)
+       
+          const data = await res.json()
+        if (!cancelled) setMyTables(data.tables)
+      } catch (error) {
+        if (!cancelled) console.error('Failed to load my tables', error)
+      }
+    }
+    loadMyTables()
+    return () => { cancelled = true }
+  }, [session?.user?.id])
 
   async function handleCreate(config: TableConfig) {
     try {
       const res = await fetch('http://localhost:3000/api/tables', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(config),
       })
       const data = await res.json()
@@ -115,13 +128,52 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
         alert(data.error || 'Failed to create table')
         return
       }
-      setTables(prev => [data.table, ...prev])
+    setTables(prev =>
+        data.table.isPrivate ? prev : [data.table, ...prev]
+    )
+
+    setMyTables(prev => [data.table, ...prev])
       setShowCreateTable(false)
       onJoin(data.table)
     } catch {
       alert('Could not reach the server')
     }
   }
+  async function handleDelete(tableId: string) {
+    const confirmed = window.confirm(
+        'Are you sure you want to delete this table?'
+    )
+
+    if (!confirmed) return
+
+    try {
+        const res = await fetch(`/api/tables/${tableId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+            alert(data.error || 'Failed to delete table')
+            return
+        }
+
+        // Remove from My Tables
+        setMyTables(prev =>
+            prev.filter(table => String(table.id) !== String(tableId))
+        )
+
+        // Remove from All Tables
+        setTables(prev =>
+            prev.filter(table => String(table.id) !== String(tableId))
+        )
+
+    } catch (error) {
+        console.error('Failed to delete table:', error)
+        alert('Could not reach the server')
+    }
+}
 
 
 
@@ -154,20 +206,52 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
           </div>
         </div>
 
-        {/* Guest badge */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}>
-            <div className="w-2 h-2 rounded-full" style={{ background: '#c0392b' }} />
-            <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>Guest · $500 chips</span>
-          </div>
-          <button
-            onClick={ onSignUp }          
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
-            style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }}
-          >
-            Sign Up to Save
-          </button>
-        </div>
+        {/* User or Guest */}
+            <div className="flex items-center gap-3">
+        {session?.user ? (
+            <>
+                {/* Logged-in user */}
+                <span className="px-4 py-2 text-sm text-white rounded-lg bg-[#1c1e25]">
+                    👤 {session.user.name}
+                </span>
+
+                <span className="px-4 py-2 text-sm text-yellow-400 rounded-lg bg-[#1c1e25]">
+                    🪙 500 Chips
+                </span>
+            </>
+        ) : (
+            <>
+                {/* Guest user */}
+                <div
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                    style={{
+                        background: '#1c1e25',
+                        border: '1px solid #2a2d38'
+                    }}
+                >
+                    <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: '#c0392b' }}
+                    />
+
+                    <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>
+                        Guest · $500 chips
+                    </span>
+                </div>
+
+                <button
+                    onClick={onSignUp}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
+                    style={{
+                        background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                        color: '#fff'
+                    }}
+                >
+                    Sign Up to Save
+                </button>
+            </>
+        )}
+    </div>
       </header>
 
       <div className="relative z-10 flex-1 w-full px-6 py-8" style={{ maxWidth: '72rem', margin: '0 auto' }}>
@@ -224,7 +308,127 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
 
           {/* Left: filters + tables */}
           <div className="flex-1 min-w-0">
+          {/* My Tables: same cards and Take a Seat button as the public list */}
+        {session?.user && myTables.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-xl font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
+                ♠ My Tables
+              </h2>
+              <span className="px-2 py-1 text-xs rounded-md" style={{ background: '#1c1e25', color: '#c0392b' }}>
+                {myTables.length} Hosted
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {myTables.map(table => {
+            const isFull = table.status === 'full'
+            const isHovered = hovered === `mine-${table.id}`
+            return (
+              <div
+                key={table.id}
+                onClick={() => !isFull && onJoin(table)}
+                onMouseEnter={() => !isFull && setHovered(`mine-${table.id}`)}
+                onMouseLeave={() => setHovered(null)}
+                className="rounded-2xl p-5 transition-all duration-150 cursor-pointer"
+                style={{
+                  background: isHovered ? '#1f2029' : '#161820',
+                  border: `1px solid ${isHovered ? 'rgba(192,57,43,0.45)' : '#222430'}`,
+                  opacity: isFull ? 0.5 : 1,
+                  cursor: isFull ? 'not-allowed' : 'pointer',
+                  transform: isHovered ? 'translateY(-1px)' : 'none',
+                }}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-base leading-tight" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
+                      {table.name}
+                    </h3>
+                    <p className="text-xs mt-0.5" style={{ color: '#e8e4dc', opacity: 0.35 }}>
+                      Blinds {table.blind} · {table.hands} hands played
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <span className="text-xs font-semibold" style={{ color: '#facc15' }}>★ Host</span>
+                    <span
+                      className="text-xs font-semibold px-2 py-0.5 rounded-md"
+                      style={{
+                        background: `${STAKE_COLORS[table.stakes]}22`,
+                        color: STAKE_COLORS[table.stakes],
+                        border: `1px solid ${STAKE_COLORS[table.stakes]}44`,
+                      }}
+                    >
+                      {STAKE_LABELS[table.stakes]}
+                    </span>
+                    {isFull && (
+                      <span className="text-xs px-2 py-0.5 rounded-md" style={{ background: '#2a2d38', color: '#e8e4dc', opacity: 0.5 }}>
+                        Full
+                      </span>
+                    )}
+                    {table.status === 'waiting' && (
+                      <span className="text-xs px-2 py-0.5 rounded-md" style={{ background: '#1c2a1c', color: '#4ade80', border: '1px solid #22c55e44' }}>
+                        Waiting
+                      </span>
+                    )}
+                  </div>
+                </div>
 
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1.5">
+                    <SeatDots filled={table.players} max={table.max} />
+                    <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>
+                      {table.players}/{table.max} seated · avg pot {table.avgPot}
+                    </p>
+                  </div>
+                 <div className="flex flex-col items-center gap-2">
+    {!isFull && (
+        <button
+            onClick={e => {
+                e.stopPropagation()
+                onJoin(table)
+            }}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{
+                background: isHovered
+                    ? 'linear-gradient(135deg, #c0392b, #8b1a1a)'
+                    : '#1c1e25',
+                color: isHovered ? '#fff' : '#c0392b',
+                border: `1px solid ${
+                    isHovered
+                        ? 'transparent'
+                        : 'rgba(192,57,43,0.35)'
+                }`
+            }}
+        >
+            Take a Seat
+        </button>
+    )}
+
+    <button
+        onClick={e => {
+            e.stopPropagation()
+            handleDelete(String(table.id))
+        }}
+        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-125"
+        style={{
+            background: 'rgba(192,57,43,0.12)',
+            color: '#ef4444',
+            border: '1px solid rgba(192,57,43,0.35)'
+        }}
+    >
+        Delete
+    </button>
+</div>
+                </div>
+              </div>
+            )
+          })}
+            </div>
+          </section>
+        )}
+
+        <h2 className="text-xl font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
+          All Tables
+        </h2>
         {/* Filters */}
         <div className="flex gap-2 mb-5">
           {(['all', 'low', 'medium', 'high'] as StakeFilter[]).map(f => (
@@ -308,7 +512,7 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
                     <button
                       onClick={e => {
                         e.stopPropagation()
-                       // onJoin(table)
+                        onJoin(table)
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
                       style={{

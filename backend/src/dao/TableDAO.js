@@ -21,3 +21,7 @@ export async function deleteTable(id) {
 export async function updateTable(id, updateData) {
     return await Table.findByIdAndUpdate(id, updateData, { new: true });
 }
+export async function findTablesByHost(hostId) {
+    return await Table.find({ host: hostId })
+        .sort({ createdAt: -1 });
+}
