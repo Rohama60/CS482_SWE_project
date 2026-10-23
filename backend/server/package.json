@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test:jest": "jest",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --listTests && jest --coverage --verbose"
   },
   "keywords": [],
   "author": "",
