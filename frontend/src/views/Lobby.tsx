@@ -3,6 +3,7 @@ import { TableCreation , type PokerTableData, type TableConfig} from './TableCre
 import { authClient } from '../../lib/auth-client.ts'
 import { getGuest } from '../guestSession.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
+import { AudioSettings } from '../components/AudioSettings.tsx'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -80,6 +81,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
   const {data: session} = authClient.useSession()
   const guest = getGuest()
+  const [showAudioDropdown, setShowAudioDropdown] = useState(false)
   const [ showProfileMenu, setShowProfileMenu] = useState(false)
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<string | number | null>(null)
@@ -279,7 +281,22 @@ async function handleSignOut() {
         </div>
 
         {/* User or Guest */}
-            <div className="flex items-center gap-3">
+            <div className="relative flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowAudioDropdown(previous => !previous)}
+            aria-expanded={showAudioDropdown}
+            aria-haspopup="dialog"
+            className="px-4 py-2 text-sm rounded-lg transition-all hover:bg-white/5"
+            style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38' }}
+          >
+            🔊 Audio ▾
+          </button>
+          {showAudioDropdown && (
+            <div className="absolute right-0 top-12 z-20 w-80 rounded-xl p-3 shadow-2xl" style={{ background: '#131418', border: '1px solid #2a2d38' }}>
+              <AudioSettings userId={session?.user?.id ?? ''} />
+            </div>
+          )}
         {session?.user ? (
   <>
     <div className="relative">
