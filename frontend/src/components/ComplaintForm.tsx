@@ -55,10 +55,11 @@ export function ComplaintForm({ reporterId }: { reporterId: string }) {
       ) : (
         <form onSubmit={handleSubmit}>
           <div style={fieldGroupStyle}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
+            <label htmlFor="reported-username" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
               Offending Username
             </label>
             <input 
+              id="reported-username"
               type="text" 
               style={{ width: '100%', padding: '10px 12px', backgroundColor: '#131418', border: '1px solid #2a2d38', borderRadius: '8px', color: '#e8e4dc', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
               value={reportedUsername} 
@@ -67,10 +68,11 @@ export function ComplaintForm({ reporterId }: { reporterId: string }) {
             />
           </div>
           <div style={fieldGroupStyle}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
+            <label htmlFor="complaint-reason" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
               Reason
             </label>
             <select 
+              id="complaint-reason"
               style={{ width: '100%', padding: '10px 12px', backgroundColor: '#131418', border: '1px solid #2a2d38', borderRadius: '8px', color: '#e8e4dc', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }} 
               value={reason} 
               onChange={(e) => setReason(e.target.value)}
@@ -81,10 +83,11 @@ export function ComplaintForm({ reporterId }: { reporterId: string }) {
             </select>
           </div>
           <div style={fieldGroupStyle}>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
+            <label htmlFor="complaint-details" style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#e8e4dc', opacity: 0.8 }}>
               Altercation Details
             </label>
             <textarea 
+              id="complaint-details"
               style={{ width: '100%', padding: '10px 12px', backgroundColor: '#131418', border: '1px solid #2a2d38', borderRadius: '8px', color: '#e8e4dc', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', minHeight: '80px' }} 
               rows={3} 
               value={details} 
