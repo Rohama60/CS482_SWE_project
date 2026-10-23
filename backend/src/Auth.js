@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './loadEnv.js';
 import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { MongoClient } from 'mongodb';
 import { betterAuth } from 'better-auth';

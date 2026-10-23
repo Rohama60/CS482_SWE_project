@@ -1,17 +1,13 @@
-import 'dotenv/config';
+import '../src/loadEnv.js';
 import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
-
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
