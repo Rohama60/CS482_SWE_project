@@ -199,6 +199,13 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
             <p className="text-sm font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{table.name}</p>
             <p className="hidden text-xs sm:block" style={{ color: '#e8e4dc', opacity: 0.35 }}>5-card draw · Blinds {table.blind}</p>
           </div>
+          {/* P7: only the host's copy of the table includes the code, so only the host sees this */}
+          {table.isPrivate && table.inviteCode && (
+            <div className="rounded-lg px-3 py-1.5" style={{ background: '#1c1e25', border: '1px dashed rgba(192,57,43,0.6)' }} title="Share this code so friends can join">
+              <p className="text-[0.6rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Invite code</p>
+              <p className="text-sm font-bold" style={{ color: '#e8e4dc', letterSpacing: '0.18em' }}>{table.inviteCode}</p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
