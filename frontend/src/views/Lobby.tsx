@@ -2,11 +2,13 @@ import { useState , useEffect} from 'react'
 import { TableCreation , type PokerTableData, type TableConfig} from './TableCreation.tsx'
 import { authClient } from '../../lib/auth-client.ts'
 import { getGuest } from '../guestSession.ts'
+import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
+  onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
 };
 
@@ -78,7 +80,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
     </div>
   )
 }
-export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const {data: session} = authClient.useSession()
   const guest = getGuest()
   const [showAudioDropdown, setShowAudioDropdown] = useState(false)
@@ -146,6 +148,61 @@ export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
       alert('Could not reach the server')
     }
   }
+  // P7: ask the server for a seat before going to the table
+  const [joinCode, setJoinCode] = useState('')
+  const [joining, setJoining] = useState(false)
+
+  function rememberTable(updated: PokerTableData) {
+    setTables(prev => prev.map(t => (t.id === updated.id ? { ...t, ...updated } : t)))
+    setMyTables(prev => prev.map(t => (t.id === updated.id ? { ...t, ...updated } : t)))
+  }
+
+  async function handleJoin(table: PokerTableData) {
+    if (joining) return
+    setJoining(true)
+    try {
+      const updated = await joinTable(table.id)
+      rememberTable(updated)
+      onJoin(updated)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not join the table')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  // P3: watch a table, including full ones
+  async function handleSpectate(table: PokerTableData) {
+    if (joining) return
+    setJoining(true)
+    try {
+      const { table: updated, role } = await spectateTable(table.id)
+      rememberTable(updated)
+      // If they're already playing here, just take them to their seat
+      if (role === 'player') onJoin(updated)
+      else onSpectate(updated)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not watch the table')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  async function handleJoinByCode(e: React.FormEvent) {
+    e.preventDefault()
+    if (joining || !joinCode.trim()) return
+    setJoining(true)
+    try {
+      const updated = await joinTableByCode(joinCode)
+      setJoinCode('')
+      onJoin(updated)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not join the table')
+    } finally {
+      setJoining(false)
+    }
+  }
+
   async function handleDelete(tableId: string) {
     const confirmed = window.confirm(
         'Are you sure you want to delete this table?'
@@ -489,6 +546,11 @@ async function handleSignOut() {
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
                     <span className="text-xs font-semibold" style={{ color: '#facc15' }}>★ Host</span>
+                    {table.isPrivate && table.inviteCode && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38', letterSpacing: '0.12em' }} title="Share this code so friends can join">
+                        Code: {table.inviteCode}
+                      </span>
+                    )}
                     <span
                       className="text-xs font-semibold px-2 py-0.5 rounded-md"
                       style={{
@@ -526,7 +588,7 @@ async function handleSignOut() {
             onMouseLeave={() => setHovered(null)}
             onClick={e => {
                 e.stopPropagation()
-                onJoin(table)
+                handleJoin(table)
             }}
             className="w-full px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150"
             style={{
@@ -580,6 +642,31 @@ async function handleSignOut() {
             </div>
           </section>
         )}
+
+        {/* P7: private tables aren't listed, so players join them with a code */}
+        <form onSubmit={handleJoinByCode} className="flex flex-wrap items-center gap-2 mb-6 p-4 rounded-2xl" style={{ background: '#161820', border: '1px solid #222430' }}>
+          <label htmlFor="invite-code" className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
+            Have an invite code?
+          </label>
+          <input
+            id="invite-code"
+            value={joinCode}
+            onChange={e => setJoinCode(e.target.value.toUpperCase())}
+            placeholder="K7Q2MX"
+            maxLength={6}
+            autoComplete="off"
+            className="px-3 py-1.5 rounded-lg text-sm"
+            style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38', letterSpacing: '0.15em', width: '9rem' }}
+          />
+          <button
+            type="submit"
+            disabled={joining || !joinCode.trim()}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff', opacity: joining || !joinCode.trim() ? 0.5 : 1 }}
+          >
+            {joining ? 'Joining' : 'Join Private Table'}
+          </button>
+        </form>
 
         <h2 className="text-xl font-semibold mb-4" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
           All Tables
@@ -667,7 +754,7 @@ async function handleSignOut() {
                       onMouseLeave={() => setHovered(null)}
                       onClick={e => {
                         e.stopPropagation()
-                        onJoin(table)
+                        handleJoin(table)
                       }}
                       className="px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150"
                       style={{
@@ -685,6 +772,17 @@ async function handleSignOut() {
                       Take a Seat
                     </button>
                   )}
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      handleSpectate(table)
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-125"
+                    style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #2a2d38' }}
+                    title="Watch this table without taking a seat"
+                  >
+                    👁 Watch
+                  </button>
                 </div>
               </div>
             )

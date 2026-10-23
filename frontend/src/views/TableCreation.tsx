@@ -25,6 +25,8 @@ export type PokerTableData = {
   hands: number
   bots?: number
   isPrivate?: boolean
+  inviteCode?: string | null
+  spectators?: { kind: string; refId: string; displayName: string }[]
 }
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {

@@ -1,6 +1,14 @@
 import { createTable, findAllTables, findTableById, deleteTable, updateTable, findTablesByHost } from '../dao/TableDAO.js';
 import Account from '../models/AccountModel.js';
 import {auth} from '../Auth.js';
+import { generateInviteCode } from '../utils/inviteCode.js';
+
+// The model hides inviteCode from everyone. The host gets it added back here.
+function withInviteCode(table) {
+    const json = typeof table.toJSON === 'function' ? table.toJSON() : { ...table };
+    json.inviteCode = table.inviteCode ?? null;
+    return json;
+}
 const BLIND_BY_STAKE = { low: '1 / 2', medium: '5 / 10', high: '25 / 50' };
 
 export async function CreateTableController(req, res) {
@@ -44,12 +52,15 @@ export async function CreateTableController(req, res) {
         bots,
         status: bots === 0 ? 'waiting' : players >= seats ? 'full' : 'active',
         isPrivate,
-        host: account._id      
+        host: account._id,
+        // P7: the host takes the first seat, and private tables get a code to share
+        seats: [{ kind: 'user', refId: String(account._id), displayName: account.displayName || account.username }],
+        inviteCode: isPrivate ? generateInviteCode() : null
     });
 
     return res.status(201).json({
         message: 'Table created',
-        table: newTable
+        table: withInviteCode(newTable)
     });
 }
 
@@ -171,14 +182,20 @@ export async function UpdateTableController(req, res) {
             });
         }
 
-        const updatedTable = await updateTable(id, {
+        const changes = {
             name: name.trim(),
             stakes,
             max,
             bots,
             isPrivate,
             blind: blindByStake[stakes]
-        });
+        };
+        // P7: a table switched to private needs a code
+        if (isPrivate && !table.inviteCode) {
+            changes.inviteCode = generateInviteCode();
+        }
+
+        const updatedTable = await updateTable(id, changes);
 
         return res.status(200).json({
             message: 'Table updated',
@@ -218,7 +235,7 @@ export async function GetMyTablesController(req, res) {
         const tables = await findTablesByHost(account._id);
 
         return res.status(200).json({
-            tables
+            tables: tables.map(withInviteCode)
         });
 
     } catch (error) {

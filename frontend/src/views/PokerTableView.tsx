@@ -151,14 +151,23 @@ function CardBacks({ count = 5 }: { count?: number }) {
     </div>
   )
 }
-export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave: () => void }) {
+type PokerTableProps = {
+  table: PokerTableData
+  onLeave: () => void
+  spectating?: boolean      // P3
+  onTakeSeat?: () => void   // P3
+}
+
+export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
+  const seatOpen = table.players < table.max
+  const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([2, 3, 4])
   const [hand, setHand] = useState<CardData[]>(STARTING_HAND)
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
 
   function toggleCard(index: number) {
-    if (complete) return
+    if (complete || spectating) return
     setSelected(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index])
   }
 
@@ -183,13 +192,20 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
             backgroundColor: '#1c1e25',
                 border: 'none',
                 color: '#fff' }}>
-            ← Leave table
+            {spectating ? '← Stop watching' : '← Leave table'}
           </button>
           <div className="hidden h-5 w-px sm:block" style={{ background: '#2a2d38' }} />
           <div>
             <p className="text-sm font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{table.name}</p>
             <p className="hidden text-xs sm:block" style={{ color: '#e8e4dc', opacity: 0.35 }}>5-card draw · Blinds {table.blind}</p>
           </div>
+          {/* P7: only the host's copy of the table includes the code, so only the host sees this */}
+          {table.isPrivate && table.inviteCode && (
+            <div className="rounded-lg px-3 py-1.5" style={{ background: '#1c1e25', border: '1px dashed rgba(192,57,43,0.6)' }} title="Share this code so friends can join">
+              <p className="text-[0.6rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Invite code</p>
+              <p className="text-sm font-bold" style={{ color: '#e8e4dc', letterSpacing: '0.18em' }}>{table.inviteCode}</p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -259,7 +275,9 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
                 }}
               />
               <div className="relative z-10 mb-2 flex items-end justify-center -space-x-1 sm:space-x-1">
-                {hand.map((card, index) => (
+                {spectating ? (
+                  <CardBacks count={5} />
+                ) : hand.map((card, index) => (
                   <PlayingCard key={`${card.rank}${card.suit}${index}`} card={card} selected={selected.includes(index)} onClick={() => toggleCard(index)} />
                 ))}
               </div>
@@ -271,6 +289,35 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
             </div>
           </div>
 
+          {spectating ? (
+            /* P3: what a spectator sees instead of their own hand and buttons */
+            <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
+              <div className="flex items-center gap-3 px-2">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(192,57,43,0.45)', color: '#f0a097' }}>
+                  👁
+                </div>
+                <div>
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Spectating</p>
+                  <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
+                    {seatOpen ? `${table.max - table.players} seat${table.max - table.players === 1 ? '' : 's'} open` : 'Table is full'}
+                  </p>
+                  <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>
+                    {watcherCount} watching · players' cards stay hidden
+                  </p>
+                </div>
+              </div>
+              <div className="flex w-full gap-2 sm:w-auto">
+                <button
+                  className="w-full rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:w-auto"
+                  style={{ background: seatOpen ? 'linear-gradient(135deg, #c0392b, #8b1a1a)' : '#1c1e25', color: seatOpen ? '#fff' : '#e8e4dc', opacity: seatOpen ? 1 : 0.4, cursor: seatOpen ? 'pointer' : 'not-allowed' }}
+                  disabled={!seatOpen}
+                  onClick={onTakeSeat}
+                >
+                  {seatOpen ? 'Take a Seat' : 'No seats open'}
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="flex items-center gap-3 px-2">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(192,57,43,0.45)', color: '#f0a097' }}>
@@ -307,13 +354,14 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
               )}
             </div>
           </div>
+          )}
         </div>
 
         <aside className="hidden w-60 shrink-0 flex-col gap-4 lg:flex">
           <div className="rounded-2xl border p-5" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table details</p>
             <div className="mt-4 space-y-3">
-              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Blinds', table.blind], ['Players', '6 / 6']].map(([label, value]) => (
+              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Blinds', table.blind], ['Players', `${table.players} / ${table.max}`], ['Watching', String(watcherCount)]].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-xs">
                   <span style={{ color: '#e8e4dc', opacity: 0.35 }}>{label}</span>
                   <span className="font-medium" style={{ color: '#e8e4dc' }}>{value}</span>
@@ -321,6 +369,7 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
               ))}
             </div>
           </div>
+          {!spectating && (
           <div className="rounded-2xl border p-5" style={{ background: 'linear-gradient(145deg, rgba(107,16,16,0.42), rgba(28,30,37,0.8))', borderColor: 'rgba(192,57,43,0.45)' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Your hand</p>
             <p className="mt-2 text-lg font-semibold" style={{ color: complete ? '#4ade80' : '#e8e4dc', fontFamily: 'var(--font-display)' }}>
@@ -334,6 +383,7 @@ export function PokerTable({ table, onLeave }: { table: PokerTableData; onLeave:
               How to play
             </button>
           </div>
+          )}
           <div className="flex-1 rounded-2xl border p-5" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table activity</p>
             <div className="mt-4 space-y-4">

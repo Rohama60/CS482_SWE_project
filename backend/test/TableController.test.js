@@ -425,14 +425,17 @@ describe("Create Table Controller Tests", () => {
             bots: 1,
             status: 'active',
             isPrivate: false,
-            host: account._id
+            host: account._id,
+            // P7: the host takes the first seat; public tables have no invite code
+            seats: [{ kind: 'user', refId: String(account._id), displayName: 'testuser' }],
+            inviteCode: null
         });
 
         expect(mockCreateTable).toHaveBeenCalledTimes(1);
         expect(res.status).toHaveBeenCalledWith(201);
         expect(res.json).toHaveBeenCalledWith({
             message: 'Table created',
-            table: createdTable
+            table: { ...createdTable, inviteCode: null }
         });
     });
 
@@ -780,7 +783,8 @@ describe('Get My Tables Controller Tests', () => {
         expect(mockFindAccount).toHaveBeenCalledWith({ userId: 'testuser' });
         expect(mockFindTableByHost).toHaveBeenCalledWith(account._id);
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith({ tables });
+        // P7: the host's own tables include the invite code (null for public tables)
+        expect(res.json).toHaveBeenCalledWith({ tables: tables.map(t => ({ ...t, inviteCode: null })) });
     });
 
     test('returns 401 when the user is not logged in', async () => {

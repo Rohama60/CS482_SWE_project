@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 
+// P7: who is sitting at the table. A seat can belong to a logged-in user or a guest.
+const seatSchema = new mongoose.Schema({
+    kind: { type: String, enum: ['user', 'guest'], required: true },
+    refId: { type: String, required: true },
+    displayName: { type: String, default: 'Player' },
+}, { _id: false });
+
 const tableSchema = new mongoose.Schema({
     name: { type: String, required: true, trim: true, maxlength: 28},
     stakes: { type: String, enum: ['low', 'medium', 'high'], required: true },
@@ -12,6 +19,10 @@ const tableSchema = new mongoose.Schema({
     hands: { type: Number, default: 0 },
     isPrivate: { type: Boolean, default: false },
     host: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },
+    seats: { type: [seatSchema], default: [] },
+    // P3: people watching without a seat. They don't count toward max players.
+    spectators: { type: [seatSchema], default: [] },
+    inviteCode: { type: String, default: null, index: true },
 }, { timestamps: true });
 
 tableSchema.set('toJSON', {
@@ -19,6 +30,7 @@ tableSchema.set('toJSON', {
         ret.id = ret._id;
         delete ret._id;
         delete ret.__v;
+        delete ret.inviteCode; // only the host should see the code
         return ret;
     }
 });
