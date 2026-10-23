@@ -1,42 +1,116 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1792681317461" clover="3.2.0">
-  <project timestamp="1792681317462" name="All files">
-    <metrics statements="18" coveredstatements="13" conditionals="14" coveredconditionals="10" methods="3" coveredmethods="1" elements="35" coveredelements="24" complexity="0" loc="18" ncloc="18" packages="3" files="3" classes="3"/>
-    <package name="src">
-      <metrics statements="4" coveredstatements="3" conditionals="6" coveredconditionals="3" methods="1" coveredmethods="0"/>
-      <file name="Auth.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/Auth.js">
-        <metrics statements="4" coveredstatements="3" conditionals="6" coveredconditionals="3" methods="1" coveredmethods="0"/>
-        <line num="7" count="1" type="stmt"/>
-        <line num="8" count="1" type="cond" truecount="1" falsecount="1"/>
-        <line num="10" count="1" type="stmt"/>
-        <line num="30" count="0" type="stmt"/>
-      </file>
-    </package>
-    <package name="src.controllers">
-      <metrics statements="12" coveredstatements="8" conditionals="8" coveredconditionals="7" methods="2" coveredmethods="1"/>
-      <file name="SignUpController.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/controllers/SignUpController.js">
-        <metrics statements="12" coveredstatements="8" conditionals="8" coveredconditionals="7" methods="2" coveredmethods="1"/>
-        <line num="6" count="4" type="stmt"/>
-        <line num="7" count="4" type="stmt"/>
-        <line num="8" count="4" type="cond" truecount="6" falsecount="0"/>
-        <line num="9" count="1" type="stmt"/>
-        <line num="12" count="3" type="stmt"/>
-        <line num="14" count="3" type="stmt"/>
-        <line num="20" count="0" type="stmt"/>
-        <line num="21" count="0" type="stmt"/>
-        <line num="23" count="3" type="cond" truecount="1" falsecount="1"/>
-        <line num="24" count="3" type="stmt"/>
-        <line num="29" count="0" type="stmt"/>
-        <line num="30" count="0" type="stmt"/>
-      </file>
-    </package>
-    <package name="src.models">
-      <metrics statements="2" coveredstatements="2" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-      <file name="AccountModel.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/models/AccountModel.js">
-        <metrics statements="2" coveredstatements="2" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-        <line num="3" count="1" type="stmt"/>
-        <line num="16" count="1" type="stmt"/>
-      </file>
-    </package>
+<coverage generated="1792714233710" clover="3.2.0">
+  <project timestamp="1792714233710" name="All files">
+    <metrics statements="101" coveredstatements="99" conditionals="74" coveredconditionals="71" methods="11" coveredmethods="10" elements="186" coveredelements="180" complexity="0" loc="101" ncloc="101" packages="1" files="3" classes="3"/>
+    <file name="GuestController.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/controllers/GuestController.js">
+      <metrics statements="18" coveredstatements="18" conditionals="4" coveredconditionals="4" methods="3" coveredmethods="3"/>
+      <line num="4" count="1" type="stmt"/>
+      <line num="8" count="4" type="stmt"/>
+      <line num="9" count="4" type="stmt"/>
+      <line num="15" count="3" type="stmt"/>
+      <line num="16" count="3" type="stmt"/>
+      <line num="22" count="2" type="stmt"/>
+      <line num="27" count="1" type="stmt"/>
+      <line num="28" count="1" type="stmt"/>
+      <line num="35" count="4" type="stmt"/>
+      <line num="36" count="4" type="stmt"/>
+      <line num="38" count="4" type="cond" truecount="2" falsecount="0"/>
+      <line num="39" count="1" type="stmt"/>
+      <line num="42" count="3" type="stmt"/>
+      <line num="44" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="45" count="1" type="stmt"/>
+      <line num="48" count="1" type="stmt"/>
+      <line num="50" count="1" type="stmt"/>
+      <line num="51" count="1" type="stmt"/>
+    </file>
+    <file name="SignUpController.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/controllers/SignUpController.js">
+      <metrics statements="12" coveredstatements="10" conditionals="8" coveredconditionals="7" methods="2" coveredmethods="1"/>
+      <line num="6" count="4" type="stmt"/>
+      <line num="7" count="4" type="stmt"/>
+      <line num="8" count="4" type="cond" truecount="6" falsecount="0"/>
+      <line num="9" count="1" type="stmt"/>
+      <line num="12" count="3" type="stmt"/>
+      <line num="14" count="3" type="stmt"/>
+      <line num="20" count="1" type="stmt"/>
+      <line num="21" count="1" type="stmt"/>
+      <line num="23" count="2" type="cond" truecount="1" falsecount="1"/>
+      <line num="24" count="2" type="stmt"/>
+      <line num="29" count="0" type="stmt"/>
+      <line num="30" count="0" type="stmt"/>
+    </file>
+    <file name="TableController.js" path="/home/jdsanchez/cs482/project/CS482_SWE_project/backend/src/controllers/TableController.js">
+      <metrics statements="71" coveredstatements="71" conditionals="62" coveredconditionals="60" methods="6" coveredmethods="6"/>
+      <line num="4" count="1" type="stmt"/>
+      <line num="7" count="7" type="stmt"/>
+      <line num="9" count="7" type="cond" truecount="2" falsecount="0"/>
+      <line num="10" count="1" type="stmt"/>
+      <line num="13" count="6" type="stmt"/>
+      <line num="17" count="6" type="cond" truecount="2" falsecount="0"/>
+      <line num="18" count="1" type="stmt"/>
+      <line num="20" count="5" type="cond" truecount="2" falsecount="0"/>
+      <line num="22" count="5" type="cond" truecount="5" falsecount="0"/>
+      <line num="23" count="1" type="stmt"/>
+      <line num="25" count="4" type="cond" truecount="2" falsecount="0"/>
+      <line num="26" count="1" type="stmt"/>
+      <line num="28" count="3" type="cond" truecount="5" falsecount="0"/>
+      <line num="29" count="1" type="stmt"/>
+      <line num="32" count="2" type="cond" truecount="5" falsecount="0"/>
+      <line num="33" count="1" type="stmt"/>
+      <line num="36" count="1" type="stmt"/>
+      <line num="38" count="1" type="stmt"/>
+      <line num="50" count="1" type="stmt"/>
+      <line num="57" count="3" type="stmt"/>
+      <line num="58" count="3" type="stmt"/>
+      <line num="59" count="3" type="cond" truecount="4" falsecount="0"/>
+      <line num="61" count="3" type="stmt"/>
+      <line num="62" count="3" type="stmt"/>
+      <line num="66" count="2" type="stmt"/>
+      <line num="67" count="2" type="cond" truecount="2" falsecount="0"/>
+      <line num="68" count="1" type="stmt"/>
+      <line num="70" count="1" type="stmt"/>
+      <line num="78" count="7" type="stmt"/>
+      <line num="79" count="7" type="stmt"/>
+      <line num="83" count="7" type="cond" truecount="2" falsecount="0"/>
+      <line num="84" count="1" type="stmt"/>
+      <line num="89" count="6" type="stmt"/>
+      <line num="93" count="6" type="cond" truecount="2" falsecount="0"/>
+      <line num="94" count="1" type="stmt"/>
+      <line num="99" count="5" type="stmt"/>
+      <line num="101" count="5" type="cond" truecount="2" falsecount="0"/>
+      <line num="102" count="1" type="stmt"/>
+      <line num="107" count="4" type="stmt"/>
+      <line num="109" count="4" type="cond" truecount="2" falsecount="0"/>
+      <line num="110" count="1" type="stmt"/>
+      <line num="116" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="117" count="1" type="stmt"/>
+      <line num="122" count="2" type="stmt"/>
+      <line num="124" count="1" type="stmt"/>
+      <line num="129" count="1" type="stmt"/>
+      <line num="131" count="1" type="stmt"/>
+      <line num="138" count="4" type="stmt"/>
+      <line num="139" count="4" type="stmt"/>
+      <line num="140" count="4" type="stmt"/>
+      <line num="142" count="4" type="stmt"/>
+      <line num="144" count="4" type="cond" truecount="2" falsecount="0"/>
+      <line num="145" count="1" type="stmt"/>
+      <line num="150" count="3" type="stmt"/>
+      <line num="156" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="169" count="1" type="stmt"/>
+      <line num="174" count="2" type="stmt"/>
+      <line num="183" count="1" type="stmt"/>
+      <line num="189" count="1" type="stmt"/>
+      <line num="191" count="1" type="stmt"/>
+      <line num="197" count="4" type="stmt"/>
+      <line num="198" count="4" type="stmt"/>
+      <line num="202" count="4" type="cond" truecount="2" falsecount="0"/>
+      <line num="203" count="1" type="stmt"/>
+      <line num="208" count="3" type="stmt"/>
+      <line num="212" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="213" count="1" type="stmt"/>
+      <line num="218" count="2" type="stmt"/>
+      <line num="220" count="1" type="stmt"/>
+      <line num="225" count="1" type="stmt"/>
+      <line num="227" count="1" type="stmt"/>
+    </file>
   </project>
 </coverage>
