@@ -308,7 +308,6 @@ export function TableCreation({
               >
                 {isEditing ? 'Update Table' : 'Create & take a seat'}
               </button>
-              <p className="text-center mt-2 mb-0" style={{ color: '#e8e4dc', opacity: 0.3, fontSize: '0.68rem' }}>No chips are charged in this mockup.</p>
             </div>
           </aside>
         </div>

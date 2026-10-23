@@ -80,7 +80,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 export function Lobby({ onBack, onJoin , onSignUp }: LobbyProps) {
   const {data: session} = authClient.useSession()
   const guest = getGuest()
-  
+  const [ showProfileMenu, setShowProfileMenu] = useState(false)
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
@@ -232,7 +232,21 @@ async function handleUpdateTable(config: TableConfig) {
         alert('Could not reach the server')
     }
 }
+async function handleSignOut() {
+  try {
+    const { error } = await authClient.signOut()
 
+    if (error) {
+      console.error('Sign out failed:', error)
+      return
+    }
+
+    setShowProfileMenu(false)
+    onBack()
+  } catch (error) {
+    console.error('Sign out failed:', error)
+  }
+}
 
 
   return (
@@ -267,17 +281,73 @@ async function handleUpdateTable(config: TableConfig) {
         {/* User or Guest */}
             <div className="flex items-center gap-3">
         {session?.user ? (
-            <>
-                {/* Logged-in user */}
-                <span className="px-4 py-2 text-sm text-white rounded-lg bg-[#1c1e25]">
-                    👤 {session.user.name}
-                </span>
+  <>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowProfileMenu(prev => !prev)}
+        aria-expanded={showProfileMenu}
+        aria-haspopup="menu"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-125"
+        style={{
+          background: '#1c1e25',
+          border: '1px solid #2a2d38',
+          color: '#e8e4dc'
+        }}
+      >
+        <span style={{ color: '#c0392b' }}>♠</span>
 
-                <span className="px-4 py-2 text-sm text-yellow-400 rounded-lg bg-[#1c1e25]">
-                    🪙 500 Chips
-                </span>
-            </>
-        ) : (
+        {session.user.name}
+
+        <span
+          className="text-[9px] ml-1"
+          style={{ opacity: 0.45 }}
+        >
+          {showProfileMenu ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {showProfileMenu && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-1.5 w-36 rounded-lg p-1 z-50 shadow-lg"
+              style={{
+                background: '#1c1e25',
+                border: '1px solid #2a2d38'
+              }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#e8e4dc'
+                }}
+              >
+                <span style={{ color: '#c0392b' }}>↪</span>
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
+
+        <span
+          className="px-3 py-1.5 text-xs font-medium rounded-lg"
+          style={{
+            background: '#1c1e25',
+            border: '1px solid #2a2d38',
+            color: '#facc15'
+          }}
+        >
+          🪙 500 Chips
+        </span>
+      </>
+    ) : (
+      // Keep your existing guest JSX here
+
             <>
                 {/* Guest user */}
                 <div
@@ -576,15 +646,23 @@ async function handleUpdateTable(config: TableConfig) {
                   </div>
                   {!isFull && (
                     <button
+                      onMouseEnter={() => setHovered(table.id)}
+                      onMouseLeave={() => setHovered(null)}
                       onClick={e => {
                         e.stopPropagation()
                         onJoin(table)
                       }}
-                      className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-150"
                       style={{
-                        background: isHovered ? 'linear-gradient(135deg, #c0392b, #8b1a1a)' : '#1c1e25',
+                        background: isHovered
+                          ? 'linear-gradient(135deg, #c0392b, #8b1a1a)'
+                          : '#1c1e25',
                         color: isHovered ? '#fff' : '#c0392b',
-                        border: `1px solid ${isHovered ? 'transparent' : 'rgba(192,57,43,0.35)'}`,
+                        border: `1px solid ${
+                          isHovered
+                            ? 'transparent'
+                            : 'rgba(192,57,43,0.35)'
+                        }`
                       }}
                     >
                       Take a Seat

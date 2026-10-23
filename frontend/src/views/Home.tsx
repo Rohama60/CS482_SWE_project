@@ -47,7 +47,8 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
     const { data: session } = authClient.useSession();
 
     const [showDropdown, setShowDropdown] = useState(false)
-
+    const [showProfileMenu, setShowProfileMenu] = useState(false)
+    const [signingOut, setSigningOut] = useState(false)
     async function playAsGuest() {
         try {
             await startGuestSession()
@@ -55,6 +56,24 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
         } catch (error) {
             console.error(error)
             alert('Could not start a guest game. Is the backend running?')
+        }
+    }
+    async function handleSignOut() {
+        setSigningOut(true)
+
+        try {
+            const { error } = await authClient.signOut()
+
+            if (error) {
+            console.error('Sign out failed:', error)
+            return
+            }
+
+            setShowProfileMenu(false)
+        } catch (error) {
+            console.error('Sign out failed:', error)
+        } finally {
+            setSigningOut(false)
         }
     }
 
@@ -105,16 +124,72 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
                 <AudioSettings userId={session?.user?.id ?? ''} />
             </div>
         )}
-        { session?.user ? (
-            <>
-                <span className="px-4 py-2 text-sm text-white rounded-lg bg-[#1c1e25]">
-                    👤 {session.user.name}
-                </span>
+       {session?.user ? (
+  <>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowProfileMenu(prev => !prev)}
+        aria-expanded={showProfileMenu}
+        aria-haspopup="menu"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-125"
+        style={{
+          background: '#1c1e25',
+          border: '1px solid #2a2d38',
+          color: '#e8e4dc'
+        }}
+      >
+        <span style={{ color: '#c0392b' }}>♠</span>
 
-                <span className="px-4 py-2 text-sm text-yellow-400 rounded-lg bg-[#1c1e25]">
-                    🪙 500 Chips
-                </span>
-            </>
+        {session.user.name}
+
+            <span
+            className="text-[9px] ml-1"
+            style={{ opacity: 0.45 }}
+            >
+            {showProfileMenu ? '▲' : '▼'}
+            </span>
+                </button>
+
+                {showProfileMenu && (
+                    <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-1.5 w-36 rounded-lg p-1 z-50 shadow-lg"
+                    style={{
+                        background: '#1c1e25',
+                        border: '1px solid #2a2d38'
+                    }}
+                    >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleSignOut}
+                        disabled={signingOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5 disabled:opacity-50"
+                        style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                        }}
+                    >
+                        <span style={{ color: '#c0392b' }}>↪</span>
+                        {signingOut ? 'Signing out...' : 'Sign out'}
+                    </button>
+                    </div>
+                    )}
+                </div>
+
+            <span
+            className="px-3 py-1.5 text-xs font-medium rounded-lg"
+            style={{
+                background: '#1c1e25',
+                border: '1px solid #2a2d38',
+                color: '#facc15'
+            }}
+            >
+            🪙 500 Chips
+            </span>
+        </>
         ) : (
             <>
                 <button
@@ -166,50 +241,114 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
             Classic poker, no frills. Bluff your way to the pot or fold with dignity.
             </p>
 
-            {/* CTA trio */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
-
+            
+{/* Main action buttons */}
+{session?.user ? (
+  // Signed-in user
+  <div className="flex justify-center w-full max-w-2xl">
             <button
-                onClick={playAsGuest}
-                className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
-                style={{
+            onClick={() => setView('lobby')}
+            className="group flex flex-col items-center justify-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] w-full max-w-xs"
+            style={{
                 background: 'linear-gradient(135deg, #6b1010 0%, #450a0a 100%)',
-                border: '1px solid rgba(192,57,43,0.3)',
-                }}
+                border: '1px solid rgba(192,57,43,0.3)'
+            }}
             >
-                <span className="text-3xl">🃏</span>
-                <span className="text-base font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>Play as Guest</span>
-                <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>Jump in instantly</span>
-            </button>
+            <span className="text-3xl">🃏</span>
 
-            <button
-                onClick={onSignIn}
-                className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
-                style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.5)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2d38')}
-            >
-                <span className="text-3xl">🔑</span>
-                <span className="text-base font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>Log In</span>
-                <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>Resume your streak</span>
-            </button>
-
-            <button
-                onClick={onSignUp}
-                className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            <span
+                className="text-base font-semibold"
                 style={{
-                background: 'linear-gradient(135deg, rgba(192,57,43,0.14) 0%, rgba(139,26,26,0.08) 100%)',
-                border: '1px solid rgba(192,57,43,0.4)',
+                color: '#e8e4dc',
+                fontFamily: 'var(--font-display)'
                 }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.75)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.4)')}
             >
-                <span className="text-3xl">⭐</span>
-                <span className="text-base font-semibold" style={{ color: '#c0392b', fontFamily: 'var(--font-display)' }}>Create Account</span>
-                <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>Track wins &amp; stats</span>
+                Play at a Poker Table
+            </span>
+
+            <span
+                className="text-xs text-center leading-relaxed"
+                style={{
+                color: '#e8e4dc',
+                opacity: 0.55
+                }}
+            >
+                Prepare for a thrilling game of poker.
+                Your seat at the table awaits.
+            </span>
+            </button>
+        </div>
+        ) : (
+        // Guest or signed-out user
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl">
+
+            <button
+            onClick={playAsGuest}
+            className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            style={{
+                background: 'linear-gradient(135deg, #6b1010 0%, #450a0a 100%)',
+                border: '1px solid rgba(192,57,43,0.3)'
+            }}
+            >
+            <span className="text-3xl">🃏</span>
+            <span
+                className="text-base font-semibold"
+                style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}
+            >
+                Play as Guest
+            </span>
+            <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>
+                Jump in instantly
+            </span>
             </button>
 
-            </div>
+            <button
+            onClick={onSignIn}
+            className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            style={{
+                background: '#1c1e25',
+                border: '1px solid #2a2d38'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.5)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = '#2a2d38')}
+            >
+            <span className="text-3xl">🔑</span>
+            <span
+                className="text-base font-semibold"
+                style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}
+            >
+                Log In
+            </span>
+            <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>
+                Resume your streak
+            </span>
+            </button>
+
+            <button
+            onClick={onSignUp}
+            className="group flex flex-col items-center gap-3 py-8 px-6 rounded-2xl transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+            style={{
+                background: 'linear-gradient(135deg, rgba(192,57,43,0.14) 0%, rgba(139,26,26,0.08) 100%)',
+                border: '1px solid rgba(192,57,43,0.4)'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.75)')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(192,57,43,0.4)')}
+            >
+            <span className="text-3xl">⭐</span>
+            <span
+                className="text-base font-semibold"
+                style={{ color: '#c0392b', fontFamily: 'var(--font-display)' }}
+            >
+                Create Account
+            </span>
+            <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.45 }}>
+                Track wins &amp; stats
+            </span>
+            </button>
+
+        </div>
+        )}
+
 
             {/* Product explanation */}
             <section className="mt-20 w-full max-w-3xl">
