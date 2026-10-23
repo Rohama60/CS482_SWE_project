@@ -3,7 +3,6 @@ import { auth } from '../Auth.js';
 
 
 export async function SignUpController(req, res){
-    console.log("1. Signup controller reached");
     const { name, email, username, password } = req.body;
     if(!name || !email || !username || !password){
         return res.status(400).json({ error: 'Missing required fields' });

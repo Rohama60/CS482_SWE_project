@@ -14,6 +14,14 @@
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
     "test:coverage": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage"
   },
+  "jest": {
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^react$": "<rootDir>/node_modules/react",
+      "^react-dom$": "<rootDir>/node_modules/react-dom",
+      "^react-dom/(.*)$": "<rootDir>/node_modules/react-dom/$1"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Rohama60/CS482_SWE_project.git"

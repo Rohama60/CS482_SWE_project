@@ -147,4 +147,51 @@ test("Username already in use", async () => {
      });
        
 });
+test('Returns 500 when unexpected signup error occurs', async () => {
+
+    // Simulate unexpected database or server error
+    const unexpectedError = new Error('Database connection failed');
+
+    mockSignUpEmail.mockRejectedValue(unexpectedError);
+
+    const req = {
+        body: {
+            name: 'John Smith',
+            email: 'john@example.com',
+            username: 'john123',
+            password: 'password123'
+        },
+        headers: {}
+    };
+
+    const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        setHeader: jest.fn()
+    };
+
+    // Prevent expected error from appearing in console
+    const consoleSpy = jest.spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+    await SignUpController(req, res);
+
+    // Verify signup was attempted
+    expect(mockSignUpEmail).toHaveBeenCalledTimes(1);
+
+    // Verify error was logged
+    expect(consoleSpy).toHaveBeenCalledWith(
+        'Sign up failed:',
+        unexpectedError
+    );
+
+    // Verify HTTP 500 response
+    expect(res.status).toHaveBeenCalledWith(500);
+
+    expect(res.json).toHaveBeenCalledWith({
+        error: 'Unable to create account'
+    });
+
+    consoleSpy.mockRestore();
+});
 });
