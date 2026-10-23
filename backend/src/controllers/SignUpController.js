@@ -10,14 +10,12 @@ export async function SignUpController(req, res){
     }
 
     try {
-                console.log("2. Calling Better Auth");
-
+        // 
         const result = await auth.api.signUpEmail({
             body: { name, email, username, password },
             headers: req.headers,
             returnHeaders: true,
         });
-        console.log("3. Better Auth finished");
 
         result.headers?.forEach((value, key) => res.setHeader(key, value));
         return res.status(200).json(result.response);

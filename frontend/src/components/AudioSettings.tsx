@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
-export function AudioSettings({ userId }) {
+export function AudioSettings({ userId }: { userId: string }) {
   const [isMuted, setIsMuted] = useState(false);
 
   async function toggleMute() {

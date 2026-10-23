@@ -3,6 +3,7 @@ import { TableCreation , type PokerTableData, type TableConfig} from './TableCre
 import { authClient } from '../../lib/auth-client.ts'
 import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
+import { ComplaintForm } from '../components/ComplaintForm.tsx'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -79,7 +80,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
   )
 }
 export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
-  const {data: session, isPending} = authClient.useSession()
+  const {data: session} = authClient.useSession()
   const guest = getGuest()
   
   const [filter, setFilter] = useState<StakeFilter>('all')
@@ -735,6 +736,13 @@ async function handleUpdateTable(config: TableConfig) {
 
         </div>{/* end two-col */}
       </div>
+
+      <section className="relative z-10 w-full px-6 pb-10" style={{ maxWidth: '72rem', margin: '0 auto' }}>
+        <h2 className="mb-4 text-xl font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>
+          Report a player
+        </h2>
+        <ComplaintForm reporterId={session?.user?.id ?? guest?.id ?? ''} />
+      </section>
 
       {/* Bottom line */}
       {showCreateTable && (
