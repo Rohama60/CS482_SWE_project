@@ -4,4 +4,4 @@ dist/
 !.env.example
 .env
 .env.local
-
+coverage/
