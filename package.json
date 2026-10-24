@@ -16,6 +16,9 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest"
+    },
     "moduleNameMapper": {
       "^react$": "<rootDir>/node_modules/react",
       "^react-dom$": "<rootDir>/node_modules/react-dom",
@@ -50,17 +53,19 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@babel/core": "^8.0.9",
-    "@babel/preset-env": "^8.0.7",
-    "@babel/preset-react": "^8.0.1",
-    "@babel/preset-typescript": "^8.0.7",
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/preset-react": "^7.29.7",
+    "@babel/preset-typescript": "^7.29.7",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
+    "babel-jest": "^29.7.0",
     "jest-environment-jsdom": "^30.5.2",
     "oxfmt": "^0.2.0",
     "typescript": "^5.7.0",
