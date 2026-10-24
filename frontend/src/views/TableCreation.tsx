@@ -204,8 +204,8 @@ export function TableCreation({
               </div>
             </div>
 
-            <div className="d-flex align-items-center justify-content-between rounded-xl p-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
-              <div className="rounded-xl p-3 mb-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
+            <div className="d-flex flex-column gap-3 mb-4">
+              <div className="rounded-xl p-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
                 <div className="d-flex align-items-center justify-content-between">
                   <div>
                     <p className="m-0 text-sm font-semibold" style={{ color: '#e8e4dc' }}>Add CPU players</p>
@@ -248,20 +248,21 @@ export function TableCreation({
                 )}
               </div>
 
-              <div>
-
-                <p className="m-0 text-sm font-semibold" style={{ color: '#e8e4dc' }}>Private table</p>
-                <p className="m-0 mt-1" style={{ color: '#e8e4dc', opacity: 0.38, fontSize: '0.72rem' }}>Only players with your invite code can join.</p>
-              </div>
-              <div className="form-check form-switch m-0">
-                <input
-                  className="form-check-input shadow-none"
-                  type="checkbox"
-                  role="switch"
-                  checked={isPrivate}
-                  onChange={event => setIsPrivate(event.target.checked)}
-                  aria-label="Make table private"
-                />
+              <div className="d-flex align-items-center justify-content-between rounded-xl p-3" style={{ background: '#17191f', border: '1px solid #2d3039' }}>
+                <div>
+                  <p className="m-0 text-sm font-semibold" style={{ color: '#e8e4dc' }}>Private table</p>
+                  <p className="m-0 mt-1" style={{ color: '#e8e4dc', opacity: 0.38, fontSize: '0.72rem' }}>Only players with your invite code can join.</p>
+                </div>
+                <div className="form-check form-switch m-0">
+                  <input
+                    className="form-check-input shadow-none"
+                    type="checkbox"
+                    role="switch"
+                    checked={isPrivate}
+                    onChange={event => setIsPrivate(event.target.checked)}
+                    aria-label="Make table private"
+                  />
+                </div>
               </div>
             </div>
           </div>
