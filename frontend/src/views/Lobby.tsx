@@ -83,6 +83,8 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const {data: session} = authClient.useSession()
   const guest = getGuest()
+  console.log('CURRENT SESSION:', session)
+  console.log('CURRENT GUEST:', guest)
   const [showAudioDropdown, setShowAudioDropdown] = useState(false)
   const [ showProfileMenu, setShowProfileMenu] = useState(false)
   const [filter, setFilter] = useState<StakeFilter>('all')

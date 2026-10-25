@@ -165,7 +165,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [hand, setHand] = useState<CardData[]>(STARTING_HAND)
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
-
+  const [showTableMenu, setShowTableMenu] = useState(false)
   function toggleCard(index: number) {
     if (complete || spectating) return
     setSelected(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index])
@@ -221,9 +221,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
           >
             ?
           </button>
-          <button className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: '#1c1e25', border: '1px solid #2a2d38', color: '#e8e4dc' }}>
-            Table menu
-          </button>
+         
         </div>
       </header>
 
