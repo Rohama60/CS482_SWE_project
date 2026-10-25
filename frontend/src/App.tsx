@@ -7,7 +7,7 @@ import type { PokerTableData } from './views/TableCreation.tsx'
 
 import { PokerTable } from './views/PokerTableView.tsx'
 import { joinTable, stopSpectating } from './tableJoin.ts'
-import { MemberResetForm } from './components/MemberResetForm.tsx'
+import { LoginModal } from './components/LoginModal.tsx'
 
 
 
@@ -23,54 +23,6 @@ const TABLES = [
 ]
 
 
-
-
-
-function LoginModal({ onClose }: { onClose: () => void }) {
-  const [showForgotPassword, setShowForgotPassword] = useState(false)
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)' }}>
-      <div className="relative w-full max-w-sm mx-4 rounded-2xl p-8" style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-xl opacity-40 hover:opacity-80 transition-opacity" style={{ color: '#e8e4dc' }}>✕</button>
-        {showForgotPassword ? (
-          <>
-            <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Reset your password</h2>
-            <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Enter your account email and a new password.</p>
-            <MemberResetForm />
-            <button onClick={() => setShowForgotPassword(false)} className="w-full text-sm underline opacity-60 hover:opacity-100" style={{ color: '#e8e4dc' }}>
-              Back to sign in
-            </button>
-          </>
-        ) : (
-          <>
-            <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Welcome back</h2>
-            <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Sign in to your account</p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>EMAIL</label>
-                <input type="email" placeholder="you@example.com" className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all" style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>PASSWORD</label>
-                <input type="password" placeholder="••••••••" className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all" style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }} />
-              </div>
-              <button className="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:brightness-110 active:scale-[0.98]" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b' }}>
-                Sign In
-              </button>
-            </div>
-            <button onClick={() => setShowForgotPassword(true)} className="block mx-auto mt-4 text-xs underline opacity-70 hover:opacity-100" style={{ color: '#c0392b' }}>
-              Forgot password?
-            </button>
-            <p className="text-center text-xs mt-5 opacity-40" style={{ color: '#e8e4dc' }}>
-              Don't have an account? <span className="underline cursor-pointer" style={{ color: '#c0392b', opacity: 1 }}>Create one</span>
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
 
 
 
@@ -147,7 +99,13 @@ export default function App() {
   return (
     <>
       <Home view={view} setView={setView} onSignUp={openSignUp} onSignIn={() => setShowLogin(true)} />
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {showLogin && (
+        <LoginModal
+          onClose={() => setShowLogin(false)}
+          onSuccess={() => { setShowLogin(false); setView('lobby') }}
+          onSignUp={() => { setShowLogin(false); openSignUp() }}
+        />
+      )}
     </>
   )
 }
