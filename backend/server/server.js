@@ -4,6 +4,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
+import { LoginController } from '../src/controllers/LoginController.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
 import { JoinTableController, JoinByCodeController } from '../src/controllers/JoinTableController.js';
@@ -28,6 +29,7 @@ app.use((req, res, next) => {
 });
 
 app.post('/api/signup', SignUpController);
+app.post('/api/login', LoginController);
 app.post('/api/tables', CreateTableController);
 app.get('/api/tables', GetTablesController);
 app.get('/api/tables/mine', GetMyTablesController);

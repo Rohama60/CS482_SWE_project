@@ -118,7 +118,7 @@ export function SignUpView({
         </form>
         <p className="text-center text-xs mt-5 opacity-40" style={{ color: '#e8e4dc' }}>
           Already have an account?{' '}
-          <span className="underline cursor-pointer" style={{ color: '#c0392b', opacity: 1 }}>Sign in</span>
+          <span className="underline cursor-pointer" style={{ color: '#c0392b', opacity: 1 }}>Log in</span>
         </p>
       </div>
     </div>
