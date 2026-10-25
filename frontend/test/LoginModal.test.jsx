@@ -39,7 +39,7 @@ function fillIn(email, password) {
   fireEvent.change(screen.getByLabelText('PASSWORD'), { target: { value: password } })
 }
 
-const submit = () => fireEvent.click(screen.getByRole('button', { name: 'Sign In' }))
+const submit = () => fireEvent.click(screen.getByRole('button', { name: 'Log In' }))
 
 describe('Login popup', () => {
   beforeEach(() => {
@@ -126,7 +126,7 @@ describe('Login popup', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the server')
   })
 
-  test('the button says Signing in while waiting', async () => {
+  test('the button says Logging in while waiting', async () => {
     let finish
     global.fetch = jest.fn(() => new Promise(resolve => { finish = resolve }))
     setup()
@@ -134,9 +134,9 @@ describe('Login popup', () => {
     fillIn('preston@example.com', 'password123')
     submit()
 
-    expect(await screen.findByRole('button', { name: 'Signing in' })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: 'Logging in' })).toBeDisabled()
     finish({ ok: true, json: () => Promise.resolve({}) })
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Sign In' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Log In' })).toBeEnabled())
   })
 
   test('the X button closes the popup', () => {
@@ -156,7 +156,7 @@ describe('Login popup', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Forgot password?' }))
     expect(screen.getByTestId('reset-form')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to sign in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Back to log in' }))
     expect(screen.getByText('Welcome back')).toBeInTheDocument()
   })
 })

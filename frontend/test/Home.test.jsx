@@ -108,8 +108,8 @@ describe('Home Component Tests', () => {
     expect(screen.getByRole('button', { name: /play as guest/i }))
         .toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: /log in/i }))
-        .toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /log in/i }))
+        .toHaveLength(2);
 
     expect(screen.getAllByRole('button', { name: /create account/i }))
         .toHaveLength(2);
@@ -165,17 +165,14 @@ describe('Home Component Tests', () => {
     consoleSpy.mockRestore();
 
     });
-    test('Sign in buttons call onSignIn', () => {
+    test('Log in buttons call onSignIn', () => {
 
     renderHome();
 
-    fireEvent.click(
-        screen.getByRole('button', { name: 'Sign In' })
-    );
-
-    fireEvent.click(
-        screen.getByRole('button', { name: /log in/i })
-    );
+    // Both the top bar button and the middle button now say "Log In"
+    const logInButtons = screen.getAllByRole('button', { name: /log in/i });
+    expect(logInButtons).toHaveLength(2);
+    logInButtons.forEach(button => fireEvent.click(button));
 
     expect(mockOnSignIn).toHaveBeenCalledTimes(2);
 
@@ -389,8 +386,9 @@ test('Guest buttons work correctly with hover effects', async () => {
     });
 
     // LOGIN BUTTON
+    // The middle Log In card (the top bar button says Log In too)
     const loginButton = screen.getByRole('button', {
-        name: /log in/i
+        name: /resume your streak/i
     });
 
     expect(screen.getByText('Resume your streak'))

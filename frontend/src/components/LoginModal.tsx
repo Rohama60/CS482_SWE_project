@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { authClient } from '../AuthClient.ts'
 import { MemberResetForm } from './MemberResetForm.tsx'
 
-// Login: the "Log In" / "Sign In" popup. Sends the email and password to the backend,
+// Login: the "Log In" popup. Sends the email and password to the backend,
 // which checks them with Better Auth and sets the session cookie.
 export function LoginModal({
   onClose,
@@ -62,13 +62,13 @@ export function LoginModal({
             <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Enter your account email and a new password.</p>
             <MemberResetForm />
             <button onClick={() => setShowForgotPassword(false)} className="w-full text-sm underline opacity-60 hover:opacity-100" style={{ color: '#e8e4dc' }}>
-              Back to sign in
+              Back to log in
             </button>
           </>
         ) : (
           <>
             <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Welcome back</h2>
-            <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Sign in to your account</p>
+            <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Log in to your account</p>
             <form onSubmit={handleLogin} className="space-y-4" noValidate>
               <div>
                 <label htmlFor="login-email" className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>EMAIL</label>
@@ -105,7 +105,7 @@ export function LoginModal({
                 className="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:brightness-110 active:scale-[0.98]"
                 style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#0a0a0b', opacity: isSubmitting ? 0.6 : 1 }}
               >
-                {isSubmitting ? 'Signing in' : 'Sign In'}
+                {isSubmitting ? 'Logging in' : 'Log In'}
               </button>
             </form>
             <button onClick={() => setShowForgotPassword(true)} className="block mx-auto mt-4 text-xs underline opacity-70 hover:opacity-100" style={{ color: '#c0392b' }}>

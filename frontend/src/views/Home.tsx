@@ -201,7 +201,7 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
                         border: '1px solid #2a2d38'
                     }}
                 >
-                    Sign In
+                    Log In
                 </button>
 
                 <button
