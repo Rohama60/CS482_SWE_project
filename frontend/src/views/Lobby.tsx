@@ -82,6 +82,7 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
 }
 export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const {data: session} = authClient.useSession()
+  const isAuthenticated = Boolean(session)
   const guest = getGuest()
   console.log('CURRENT SESSION:', session)
   console.log('CURRENT GUEST:', guest)
@@ -470,9 +471,15 @@ async function handleSignOut() {
             </p>
           </div>
            <button
-            onClick= { () => setShowCreateTable(true) }
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-            style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff', border: '1px solid #c0392b' }}
+            onClick={() => setShowCreateTable(true)}
+            disabled={!isAuthenticated}
+            title={!isAuthenticated ? 'Sign up to create a table' : undefined}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{
+              background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+              color: '#fff',
+              border: '1px solid #c0392b',
+            }}
           >
             <span aria-hidden="true">+</span> Create Table
           </button>
