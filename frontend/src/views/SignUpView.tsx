@@ -11,19 +11,26 @@ export function SignUpView({
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
         const response = await fetch('/api/signup', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, email, password, username }),
+        body: JSON.stringify({ name, email, password, confirmPassword, username }),
       })
 
       const result = await response.json().catch(() => ({}))
@@ -101,6 +108,20 @@ export function SignUpView({
               className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all"
               style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }}
               onChange={e => setPassword(e.target.value)}
+              onFocus={e => (e.target.style.borderColor = '#c0392b')}
+              onBlur={e => (e.target.style.borderColor = '#2a2d38')}
+            />
+          </div>
+          <div>
+            <label htmlFor="signup-confirm-password" className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>CONFIRM PASSWORD</label>
+            <input
+              id="signup-confirm-password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all"
+              style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }}
+              onChange={e => setConfirmPassword(e.target.value)}
               onFocus={e => (e.target.style.borderColor = '#c0392b')}
               onBlur={e => (e.target.style.borderColor = '#2a2d38')}
             />

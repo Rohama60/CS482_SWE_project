@@ -34,7 +34,8 @@ describe("Sign Up Testing", () => {
             name : "Test User",
             username: "testuser",
             email: "testuser@example.com",
-            password: "password123"
+            password: "password123",
+            confirmPassword: "password123"
         }
     };
 
@@ -65,7 +66,8 @@ describe("Sign Up Testing", () => {
             name : "Test User",
             username: "testuser",
             email: "",
-            password: "password123"
+            password: "password123",
+            confirmPassword: "password123"
          }
      };
 
@@ -97,7 +99,8 @@ test("Email already in use", async () => {
             name : "Nice",
             username: "loweruser",
             email: "testuser@example.com",
-            password: "powerfulpassword"
+            password: "powerfulpassword",
+            confirmPassword: "powerfulpassword"
         }
     };
 
@@ -129,7 +132,8 @@ test("Username already in use", async () => {
             name : "Nice",
             username: "upperuser",
             email: "different@example.com",
-            password: "powerfulpassword"
+            password: "powerfulpassword",
+            confirmPassword: "powerfulpassword"
         }
     };
 
@@ -159,7 +163,8 @@ test('Returns 500 when unexpected signup error occurs', async () => {
             name: 'John Smith',
             email: 'john@example.com',
             username: 'john123',
-            password: 'password123'
+            password: 'password123',
+            confirmPassword: 'password123'
         },
         headers: {}
     };
@@ -193,5 +198,32 @@ test('Returns 500 when unexpected signup error occurs', async () => {
     });
 
     consoleSpy.mockRestore();
+});
+
+test('Rejects passwords that do not match', async () => {
+    const req = {
+        headers: {},
+        body: {
+            name: 'John Smith',
+            email: 'john@example.com',
+            username: 'john123',
+            password: 'password123',
+            confirmPassword: 'differentpassword'
+        }
+    };
+
+    const res = {
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn(),
+        setHeader: jest.fn()
+    };
+
+    await SignUpController(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+        error: 'Passwords do not match'
+    });
+    expect(mockSignUpEmail).not.toHaveBeenCalled();
 });
 });
