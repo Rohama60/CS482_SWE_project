@@ -13,6 +13,21 @@ const tableSchema = new mongoose.Schema({
     blind: { type: String, required: true },
     max: { type: Number, required: true, min: 2, max: 6 },
     players: {type: Number, default:1},
+    playerIds: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Account'
+        }],
+        default: []
+    },
+    guestIds: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Guest'
+        }],
+        default: []
+    },
+    
     bots: {type:Number, default:0},
     status: {type: String, enum: ['waiting', 'active', 'full'], defult: 'waiting'},
     avgPot: { type: String, default: '-' },

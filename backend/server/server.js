@@ -11,6 +11,7 @@ import { JoinTableController, JoinByCodeController } from '../src/controllers/Jo
 import { SpectateTableController, StopSpectatingController } from '../src/controllers/SpectateController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
+import { CreatePokerGameController } from '../src/controllers/PokerGameController.js';  
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -48,7 +49,7 @@ app.patch('/api/users/mute', PlayerMuteMusicController);
 app.post('/api/complaints', FileComplaintController);
 app.post('/api/auth/reset-password', SelfPasswordResetController);
 app.post('/api/admin/reset-password', AdminPasswordResetController);
-
+app.post('/api/games', CreatePokerGameController);
 
 async function startingServer() {
     try{

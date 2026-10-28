@@ -162,10 +162,49 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([2, 3, 4])
-  const [hand, setHand] = useState<CardData[]>(STARTING_HAND)
+  const [hand, setHand] = useState<CardData[]>([])
+  const [gameStarted, setGameStarted] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
+  const [gameId, setGameId] = useState<string | null>(null)
+  const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
+  async function handleStartGame() {
+      setIsStarting(true)
+
+      try {
+          const response = await fetch('/api/games', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ 
+                  tableId: table.id 
+                })
+              })
+
+          const data = await response.json()
+
+          if (!response.ok) {
+              throw new Error('Failed to start game')
+          }
+          setGameId(data._id)
+          setGameStarted(true)
+          console.log('Game started with ID:', data._id)
+
+      } catch (error) {
+        setError(
+          error instanceof Error
+          ? error.message
+          : 'Unable to start game'
+        )
+
+      } finally {
+          setIsStarting(false)
+      }
+  }
   function toggleCard(index: number) {
     if (complete || spectating) return
     setSelected(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index])
@@ -182,6 +221,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
     setSelected([2, 3, 4])
     setComplete(false)
   }
+  
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#090a0c' }}>
@@ -238,16 +278,47 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
           <div className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]" style={{ background: '#111318', borderColor: '#292c35' }}>
             <div className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]" style={{ background: 'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)', borderColor: '#160607', boxShadow: 'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909' }}>
               <div className="absolute inset-4 rounded-[48%] border" style={{ borderColor: 'rgba(232,228,220,0.08)' }} />
-              <div className="absolute inset-0 flex flex-col items-center justify-center pb-10">
-                <p className="text-xs uppercase tracking-[0.3em]" style={{ color: '#e8e4dc', opacity: 0.25 }}>Current pot</p>
-                <p className="mt-1 text-3xl font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>$36</p>
-                <div className="mt-4 flex -space-x-2">
-                  {['#c0392b', '#111318', '#e8e4dc', '#c0392b', '#111318'].map((color, i) => (
-                    <span key={i} className="h-7 w-7 rounded-full border-2" style={{ background: color, borderColor: '#e8e4dc', boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }} />
-                  ))}
-                </div>
-                <p className="mt-3 text-[0.65rem] uppercase tracking-widest" style={{ color: '#e8e4dc', opacity: 0.3 }}>All table bets collect here</p>
-              </div>
+              
+              
+              
+              {!gameStarted ? (
+                <div className="relative z-30 flex flex-col items-center gap-4">
+                  <h2 className="text-2xl font-semibold" style={{ color: '#e8e4dc' }}
+                  >
+                    Waiting for Game 
+                  </h2>
+                  <button
+                    onClick={handleStartGame}
+                    disabled={isStarting||spectating}
+                    className="rounded-xl px-8 py-4 text-lg font-semibold transition-all hover:brightness-125 disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                      color: '#fff',
+                    }}
+                    >
+                      {isStarting ? 'Starting...' : 'Start Game'}
+                    </button>
+                    {error && (
+                      <p className="test-sm text-red-400">{error}</p>
+                    )}
+                    </div>
+                    ) : (
+                      <>
+                        <p className="test-xs uppercase tracking-[0.3em]"
+                        style={{ color: '#e8e4dc', opacity: 0.5 }}
+                        >
+                          Current pot
+                        </p>
+
+                        <p
+                        className="mt-1 text-3xl font-semibold"
+                        style={{ color: '#e8e4dc' }}
+                        >
+                          $0
+                          </p>
+                          </>       
+                    )}              
+              
             </div>
 
             <PlayerSeat name="RiverRat" chips="$1,240" dealer position="left-1/2 top-4 -translate-x-1/2" />
@@ -274,10 +345,15 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
               />
               <div className="relative z-10 mb-2 flex items-end justify-center -space-x-1 sm:space-x-1">
                 {spectating ? (
-                  <CardBacks count={5} />
-                ) : hand.map((card, index) => (
+                  gameStarted ? <CardBacks count={5} /> : null
+                ) : gameStarted && hand.length > 0 ? (
+                   hand.map((card, index) => (
                   <PlayingCard key={`${card.rank}${card.suit}${index}`} card={card} selected={selected.includes(index)} onClick={() => toggleCard(index)} />
-                ))}
+                ))
+              ) : (
+                <p className="text-sm font-semibold" style={{ color: '#e8e4dc'}}>
+                  Waiting for cards...</p>
+              )}
               </div>
               <div className="relative z-10 flex items-center gap-2 rounded-xl px-4 py-2 shadow-xl" style={{ background: '#17191f', border: '1px solid #c0392b' }}>
                 <span className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>Guest</span>
