@@ -18,12 +18,15 @@ const BLIND_BY_STAKE = {
         // Find the table associated with the provided tableID
         const table = await findTableById(tableId);
         console.log('TABLE NAME:', table.name);
-console.log('TABLE ID:', table._id);
-console.log('TABLE SEATS:', JSON.stringify(table.seats, null, 2));
-console.log('NUMBER OF PLAYERS:', table.players);
+        
         if(!table){
             return res.status(404).json({message: 'Table not found'});
         }
+
+        console.log('TABLE ID:', table._id);
+        console.log('TABLE SEATS:', JSON.stringify(table.seats, null, 2));
+        console.log('NUMBER OF PLAYERS:', table.players);
+       
         const playerIds = (table.seats || [])
             .filter(seat => seat.kind === 'user')
             .map(seat => seat.refId);
@@ -52,7 +55,10 @@ console.log('Guests:', guestIds);
             round: 'waiting'
         });
 
-        res.status(201).json(game);
+        res.status(201).json({
+            game,
+            seats: table.seats || []
+        });
     }
     catch(error){
         console.error('Error creating poker game:', error);

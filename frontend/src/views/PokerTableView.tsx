@@ -1,5 +1,5 @@
 import type { PokerTableData } from "./TableCreation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
@@ -157,7 +157,11 @@ type PokerTableProps = {
   spectating?: boolean      // P3
   onTakeSeat?: () => void   // P3
 }
-
+type TableSeat = {
+  kind: 'user' | 'guest';
+  refid: string;
+  displayName: string;
+}
 export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
@@ -170,6 +174,15 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
+  const [players, setPlayers] = useState<TableSeat[]>([])
+
+  const PLAYER_POSITIONS = [
+    "left-1/2 top-4 -translate-x-1/2",
+    "right-3 top-[27%] sm:right-8",
+    "right-4 bottom-[24%] sm:right-10",
+    "left-4 bottom-[24%] sm:left-10",
+    "left-3 top-[27%] sm:left-8"
+];
   async function handleStartGame() {
       setIsStarting(true)
 
@@ -190,9 +203,10 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
           if (!response.ok) {
               throw new Error('Failed to start game')
           }
-          setGameId(data._id)
+          setGameId(data.game._id)
+          setPlayers(data.seats);
           setGameStarted(true)
-          console.log('Game started with ID:', data._id)
+          console.log('Game started with ID:', data.game._id)
 
       } catch (error) {
         setError(
@@ -221,6 +235,31 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
     setSelected([2, 3, 4])
     setComplete(false)
   }
+  useEffect(() => {
+    async function fetchPlayers() {
+        try {
+            const response = await fetch(`/api/tables/${table.id}`, {
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch table players');
+            }
+
+            const data = await response.json();
+
+            console.log('Table data:', data);
+
+            setPlayers(data.seats || []);
+
+        } catch (error) {
+            console.error('Error fetching players:', error);
+        }
+    }
+
+    fetchPlayers();
+
+}, [table.id]);
   
 
   return (
@@ -321,12 +360,17 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
               
             </div>
 
-            <PlayerSeat name="RiverRat" chips="$1,240" dealer position="left-1/2 top-4 -translate-x-1/2" />
-            <PlayerSeat name="Mara" chips="$680" position="right-3 top-[27%] sm:right-8" />
-            <PlayerSeat name="Theo" chips="$2,110" active position="right-4 bottom-[24%] sm:right-10" />
-            <PlayerSeat name="Jax" chips="$445" position="left-4 bottom-[24%] sm:left-10" />
-            <PlayerSeat name="Nighthawk" chips="$925" position="left-3 top-[27%] sm:left-8" />
-
+            {players.map((player, index) => (
+            <PlayerSeat
+                key={`${player.kind}-${player.refid}`}
+                name={player.displayName}
+                chips="$500"
+                dealer={index === 0}
+                active={false}
+                position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
+            />
+            ))}
+                  
             <BetChips amount="$2" position="left-1/2 top-[25%] -translate-x-1/2" tone="cream" />
             <BetChips amount="$8" position="right-[18%] top-[39%]" tone="black" />
             <BetChips amount="$8" position="right-[20%] bottom-[35%]" />
