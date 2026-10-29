@@ -87,6 +87,9 @@ const BLIND_BY_STAKE = {
                 return res.status(400).json({ error: 'Player not found in table' });
             }
             const status = updatedTable.players >= updatedTable.max ? 'full' : 'active';
+            
+            const io = req.app.get('io');
+            io.to(`table-${id}`).emit('table-updated', finalTable);
 
             const finalTable = await updateTable(id, { status });
             return res.status(200).json({ message: 'Left table', table: finalTable });

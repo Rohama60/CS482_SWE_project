@@ -45,28 +45,27 @@ export async function addSeatIfOpen(id, seat) {
         { returnDocument: 'after' }
     );
 }
-
 export async function removeSeat(id, player) {
-    return await Table.findByIdAndUpdate(
-    {
-        _id: id,
-        seats: {
-            $eleMatch: {
-                kind: player.kind,
-                refId: player.refId
-            }
-        },
-    },
-    {
-        $pull: {
+    return await Table.findOneAndUpdate(
+        {
+            _id: id,
             seats: {
-                kind: player.kind,
-                refId: player.refId
+                $elemMatch: {
+                    kind: player.kind,
+                    refId: player.refId
+                }
             }
         },
-        $inc: {players: -1}
+        {
+            $pull: {
+                seats: {
+                    kind: player.kind,
+                    refId: player.refId
+                }
+            },
+            $inc: { players: -1 }
         },
-        {returnDocument: 'after'}
+        { returnDocument: 'after' }
     );
 }
     

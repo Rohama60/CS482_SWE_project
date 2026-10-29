@@ -2,6 +2,7 @@ import type { PokerTableData } from "./TableCreation";
 import { useState, useEffect } from "react";
 import { getGuest } from "../guestSession";
 import { socket } from "../socket";
+import {authClient } from "../AuthClient.ts";
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
 
@@ -160,7 +161,7 @@ type PokerTableProps = {
 }
 type TableSeat = {
   kind: 'user' | 'guest';
-  refid: string;
+  refId: string;
   displayName: string;
 }
 export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
@@ -176,6 +177,16 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [showHelp, setShowHelp] = useState(false)
   const [showTableMenu, setShowTableMenu] = useState(false)
   const [players, setPlayers] = useState<TableSeat[]>([])
+  const { data: session } = authClient.useSession();
+  const currentPlayer = players.find(player =>
+    player.kind === 'user'
+        ? player.displayName === session?.user?.name
+        : player.refId === getGuest()?.id
+);
+
+const otherPlayers = players.filter(player =>
+    player.refId !== currentPlayer?.refId
+);
 
   const PLAYER_POSITIONS = [
     "left-1/2 top-4 -translate-x-1/2",
@@ -275,9 +286,13 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
         console.error('Error leaving table:', error);
     }
 }
-  
- useEffect(() => {
+useEffect(() => {
+    let active = true;
+    let requestNumber = 0;
+
     async function fetchPlayers() {
+        const currentRequest = ++requestNumber;
+
         try {
             const response = await fetch(`/api/tables/${table.id}`, {
                 credentials: 'include'
@@ -288,51 +303,50 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
             }
 
             const data = await response.json();
+            console.log('TABLE ID:', table.id);
+            console.log('ALL SEATS FROM DATABASE:', data.seats);
 
-            console.log('Table data:', data);
+            console.log('Fetched players:', data.seats);
 
-            setPlayers(data.seats || []);
+            if (active && currentRequest === requestNumber) {
+                setPlayers(data.table?.seats ?? data.seats  ?? []);
+            }
 
         } catch (error) {
             console.error('Error fetching players:', error);
         }
     }
 
-    // Listen for real-time updates from the server
-    const handleTableUpdated = (updatedTable: {
-        seats: TableSeat[]
-    }) => {
-        console.log('Real-time table update:', updatedTable);
-
-        setPlayers(updatedTable.seats || []);
+   const handleTableUpdated = (updatedTable: { seats: TableSeat[] }) => {
+    console.log('Real-time table update:', updatedTable);
+    
+    requestNumber++; // Invalidate any ongoing fetch requests
+    setPlayers(updatedTable.seats || []);
     };
 
-    // Register Socket.IO listener
     socket.on('table-updated', handleTableUpdated);
 
-    // Join this table's Socket.IO room
+
     const handleConnect = () => {
-        console.log('Connected to Socket.IO:', socket.id);
+      console.log('Socket connected:', socket.id);
 
-        socket.emit('join-table-room', table.id);
+      socket.emit('join-table-room', table.id);
 
-        // Refresh state after connecting or reconnecting
-        fetchPlayers();
-    };
+    fetchPlayers();
+  };
 
-    socket.on('connect', handleConnect);
+  socket.on('connect', handleConnect);
 
-    if (socket.connected) {
-        handleConnect();
-    } else {
-        socket.connect();
-    }
-
-    // Initial fetch
+  if (socket.connected) {
+    handleConnect();
+  } else {
+    socket.connect();
+  }
     fetchPlayers();
 
-    // Cleanup when leaving the table
     return () => {
+        active = false;
+
         socket.off('table-updated', handleTableUpdated);
         socket.off('connect', handleConnect);
 
@@ -438,9 +452,10 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
               
             </div>
 
-            {players.map((player, index) => (
+            {otherPlayers.map((player, index) => (
+              
             <PlayerSeat
-                key={`${player.kind}-${player.refid}`}
+                key={`${player.kind}-${player.refId}`}
                 name={player.displayName}
                 chips="$500"
                 dealer={index === 0}
@@ -478,7 +493,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
               )}
               </div>
               <div className="relative z-10 flex items-center gap-2 rounded-xl px-4 py-2 shadow-xl" style={{ background: '#17191f', border: '1px solid #c0392b' }}>
-                <span className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>Guest</span>
+                <span className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>{currentPlayer?.displayName || 'You' }</span>
                 <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>·</span>
                 <span className="text-xs font-semibold" style={{ color: '#f0a097' }}>$488</span>
               </div>
@@ -557,7 +572,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
           <div className="rounded-2xl border p-5" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table details</p>
             <div className="mt-4 space-y-3">
-              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Blinds', table.blind], ['Players', `${table.players} / ${table.max}`], ['Watching', String(watcherCount)]].map(([label, value]) => (
+              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Blinds', table.blind], ['Players', `${players.length} / ${table.max}`], ['Watching', String(watcherCount)]].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-xs">
                   <span style={{ color: '#e8e4dc', opacity: 0.35 }}>{label}</span>
                   <span className="font-medium" style={{ color: '#e8e4dc' }}>{value}</span>
