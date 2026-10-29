@@ -38,7 +38,7 @@ export async function getJoiningPlayer(req) {
 }
 
 // Shared by both join routes once we know which table and who is joining
-async function seatPlayer(table, player, res) {
+async function seatPlayer(table, player, req, res) {
     const alreadySeated = (table.seats || []).some(seat => seat.refId === player.refId);
     if (alreadySeated) {
         return res.status(200).json({ message: 'Already seated', table });
@@ -58,6 +58,9 @@ async function seatPlayer(table, player, res) {
     const finalTable = updated.status === status
         ? updated
         : await updateTable(updated.id ?? updated._id, { status });
+
+    const io = req.app.get('io');
+    io.to(`table-${table.id ?? table._id}`).emit('table-updated', finalTable);
 
     return res.status(200).json({ message: 'Joined table', table: finalTable });
 }
@@ -85,7 +88,7 @@ export async function JoinTableController(req, res) {
             return res.status(403).json({ error: 'This table is private. Enter the invite code to join.' });
         }
 
-        return await seatPlayer(table, player, res);
+        return await seatPlayer(table, player, req, res);
     } catch (error) {
         console.error('Error joining table:', error);
         return res.status(500).json({ error: 'Failed to join table' });
@@ -111,7 +114,7 @@ export async function JoinByCodeController(req, res) {
             return res.status(404).json({ error: 'No table with that code' });
         }
 
-        return await seatPlayer(table, player, res);
+        return await seatPlayer(table, player, req, res);
     } catch (error) {
         console.error('Error joining table by code:', error);
         return res.status(500).json({ error: 'Failed to join table' });

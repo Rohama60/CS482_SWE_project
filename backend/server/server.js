@@ -12,10 +12,24 @@ import { SpectateTableController, StopSpectatingController } from '../src/contro
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
 import { CreatePokerGameController, LeaveTableController } from '../src/controllers/PokerGameController.js';  
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Create HTTP server using Express
+const httpServer = createServer(app);
 
+// Create Socket.IO server and attach it to the HTTP server
+const io = new Server(httpServer, {
+    cors: {
+        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        credentials: true
+    }
+});
+
+app.set('io', io); // Store the Socket.IO instance in the Express app
 
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -52,6 +66,22 @@ app.post('/api/auth/reset-password', SelfPasswordResetController);
 app.post('/api/admin/reset-password', AdminPasswordResetController);
 app.post('/api/games', CreatePokerGameController);
 
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+    socket.on('join-table-room', (tableId) => {
+        socket.join(`table-${tableId}`);
+        console.log(`Socket ${socket.id} joined room table-${tableId}`);
+    });
+    socket.on('leave-table-room', (tableId) => {
+        socket.leave(`table-${tableId}`);
+        console.log(`Socket ${socket.id} left room table-${tableId}`);
+    });
+    socket.on('disconnect', () => {
+        console.log('A user disconnected:', socket.id);
+    });
+});
+
 async function startingServer() {
     try{
         await mongoClient.connect();
@@ -59,8 +89,8 @@ async function startingServer() {
         
         console.log('Connected to MongoDB');
 
-        app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
+        httpServer.listen(PORT, () => {
+            console.log(`Server and Socket.IO are running on port ${PORT}`);
         });
     } catch (error) {
         console.error('Error connecting to MongoDB:', error);
