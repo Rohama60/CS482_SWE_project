@@ -11,7 +11,7 @@ import { JoinTableController, JoinByCodeController } from '../src/controllers/Jo
 import { SpectateTableController, StopSpectatingController } from '../src/controllers/SpectateController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
-import { CreatePokerGameController } from '../src/controllers/PokerGameController.js';  
+import { CreatePokerGameController, LeaveTableController } from '../src/controllers/PokerGameController.js';  
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -36,6 +36,7 @@ app.get('/api/tables', GetTablesController);
 app.get('/api/tables/mine', GetMyTablesController);
 app.post('/api/tables/join-code', JoinByCodeController);
 app.post('/api/tables/:id/join', JoinTableController);
+app.post('/api/tables/:id/leave', LeaveTableController);
 app.post('/api/tables/:id/spectate', SpectateTableController);
 app.post('/api/tables/:id/stop-spectating', StopSpectatingController);
 app.get('/api/tables/:id', GetTableByIdController);

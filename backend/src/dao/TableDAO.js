@@ -46,6 +46,31 @@ export async function addSeatIfOpen(id, seat) {
     );
 }
 
+export async function removeSeat(id, player) {
+    return await Table.findByIdAndUpdate(
+    {
+        _id: id,
+        seats: {
+            $eleMatch: {
+                kind: player.kind,
+                refId: player.refId
+            }
+        },
+    },
+    {
+        $pull: {
+            seats: {
+                kind: player.kind,
+                refId: player.refId
+            }
+        },
+        $inc: {players: -1}
+        },
+        {returnDocument: 'after'}
+    );
+}
+    
+
 // P3: start watching. $addToSet-style check on refId so the same person isn't listed twice.
 export async function addSpectator(id, spectator) {
     return await Table.findOneAndUpdate(

@@ -1,6 +1,6 @@
 import type { PokerTableData } from "./TableCreation";
 import { useState, useEffect } from "react";
-
+import { getGuest } from "../guestSession";
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
 
@@ -235,6 +235,45 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
     setSelected([2, 3, 4])
     setComplete(false)
   }
+  async function handleLeaveTable() {
+    console.log('1. Leave button')
+    if(spectating) {
+      onLeave();
+      return;
+    }
+    try {
+        const guest = getGuest();
+        console.log('2. Guest info:', guest);
+        const response = await fetch(`/api/tables/${table.id}/leave`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                guestId: guest?.id
+            })
+        });
+        
+        console.log('3. Backend response status:', response.status);
+
+        const data = await response.json();
+
+        console.log('4. Backend response:', data);
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to leave table');
+        }
+
+        console.log('Player removed from table:', data);
+
+        // Return to the lobby after successful removal
+        onLeave();
+
+    } catch (error) {
+        console.error('Error leaving table:', error);
+    }
+}
   useEffect(() => {
     async function fetchPlayers() {
         try {
@@ -267,7 +306,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
       <div className="pointer-events-none fixed inset-0" style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 45%, rgba(90,10,10,0.3), transparent 72%)' }} />
       <header className="relative z-40 flex items-center justify-between border-b px-4 py-3 sm:px-6" style={{ background: 'rgba(10,10,11,0.9)', borderColor: '#222430', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center gap-4">
-          <button onClick={onLeave} className="rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-125" style={{ 
+          <button onClick={handleLeaveTable}  className="rounded-lg px-3 py-2 text-xs font-semibold hover:brightness-125" style={{ 
             backgroundColor: '#1c1e25',
                 border: 'none',
                 color: '#fff' }}>
