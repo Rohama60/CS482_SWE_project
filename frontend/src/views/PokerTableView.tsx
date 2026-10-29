@@ -1,6 +1,7 @@
 import type { PokerTableData } from "./TableCreation";
 import { useState, useEffect } from "react";
 import { getGuest } from "../guestSession";
+import { socket } from "../socket";
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
 
@@ -274,7 +275,8 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
         console.error('Error leaving table:', error);
     }
 }
-  useEffect(() => {
+  
+ useEffect(() => {
     async function fetchPlayers() {
         try {
             const response = await fetch(`/api/tables/${table.id}`, {
@@ -296,11 +298,48 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
         }
     }
 
+    // Listen for real-time updates from the server
+    const handleTableUpdated = (updatedTable: {
+        seats: TableSeat[]
+    }) => {
+        console.log('Real-time table update:', updatedTable);
+
+        setPlayers(updatedTable.seats || []);
+    };
+
+    // Register Socket.IO listener
+    socket.on('table-updated', handleTableUpdated);
+
+    // Join this table's Socket.IO room
+    const handleConnect = () => {
+        console.log('Connected to Socket.IO:', socket.id);
+
+        socket.emit('join-table-room', table.id);
+
+        // Refresh state after connecting or reconnecting
+        fetchPlayers();
+    };
+
+    socket.on('connect', handleConnect);
+
+    if (socket.connected) {
+        handleConnect();
+    } else {
+        socket.connect();
+    }
+
+    // Initial fetch
     fetchPlayers();
 
-}, [table.id]);
-  
+    // Cleanup when leaving the table
+    return () => {
+        socket.off('table-updated', handleTableUpdated);
+        socket.off('connect', handleConnect);
 
+        socket.emit('leave-table-room', table.id);
+    };
+
+}, [table.id]);
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#090a0c' }}>
       <div className="pointer-events-none fixed inset-0" style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 45%, rgba(90,10,10,0.3), transparent 72%)' }} />
