@@ -170,6 +170,18 @@ type TableSeat = {
   refId: string;
   displayName: string;
 }
+type GameState = {
+    _id: string;
+    smallBlind: number;
+    bigBlind: number;
+    smallBlindPlayerId: string;
+    bigBlindPlayerId: string;
+    currentBet: number;
+    currentTurn: string;
+    playerBets: Record<string, number>;
+    potSize: number;
+    round: string;
+};
 export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
@@ -178,6 +190,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [gameStarted, setGameStarted] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
+  const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
@@ -256,6 +269,7 @@ async function fetchMyHand(id: string) {
               throw new Error('Failed to start game')
           }
           setGameId(data.game._id);
+          setGame(data.game);
           setPlayers(data.seats);
           setGameStarted(true);
           await fetchMyHand(data.game._id);
@@ -367,17 +381,20 @@ useEffect(() => {
 
     socket.on('table-updated', handleTableUpdated);
     // Listen for the host starting the game
-    const handleGameStarted = (data: { gameId: string }) => {
-        console.log('Game started:', data.gameId);
+    const handleGameStarted = (data: {
+    gameId: string;
+    game: GameState;
+    }) => {
+      console.log('Game started:', data.gameId);
 
-        setGameId(data.gameId);
-        setGameStarted(true);
+      setGameId(data.gameId);
+      setGame(data.game);
+      setGameStarted(true);
 
-        // Get this player's five cards from the backend
-        if (!spectating) {
-            void fetchMyHand(data.gameId);
-        }
-    };
+      if (!spectating) {
+          void fetchMyHand(data.gameId);
+      }
+  };
 
     socket.on('game-started', handleGameStarted);
 
@@ -500,7 +517,7 @@ useEffect(() => {
                         className="mt-1 text-3xl font-semibold"
                         style={{ color: '#e8e4dc' }}
                         >
-                          $0
+                          ${game?.potSize ?? 0}
                           </p>
                           </>       
                     )}              
@@ -520,12 +537,22 @@ useEffect(() => {
             />
             ))}
                   
-            <BetChips amount="$2" position="left-1/2 top-[25%] -translate-x-1/2" tone="cream" />
-            <BetChips amount="$8" position="right-[18%] top-[39%]" tone="black" />
-            <BetChips amount="$8" position="right-[20%] bottom-[35%]" />
-            <BetChips amount="$2" position="left-[18%] top-[39%]" tone="cream" />
-            <BetChips amount="$8" position="left-[20%] bottom-[35%]" tone="black" />
-            <BetChips amount="Your bet · $8" position="bottom-[24%] left-1/2 -translate-x-1/2" />
+            {gameStarted && game && (
+                <>
+                    <BetChips
+                        amount={`Small Blind · $${game.smallBlind}`}
+                        position="left-[18%] top-[39%]"
+                        tone="cream"
+                    />
+
+                    <BetChips
+                        amount={`Big Blind · $${game.bigBlind}`}
+                        position="right-[18%] top-[39%]"
+                        tone="black"
+                    />
+                </>
+            )}           
+
 
             <div className="absolute inset-x-0 bottom-3 z-30 flex flex-col items-center">
               <div

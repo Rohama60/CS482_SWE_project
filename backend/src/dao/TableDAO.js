@@ -37,9 +37,11 @@ export async function addSeatIfOpen(id, seat) {
     return await Table.findOneAndUpdate(
         {
             _id: id,
+            gameInProgress: {$ne: true},
             $expr: { $lt: ['$players', '$max'] },
             'seats.refId': { $ne: seat.refId }
         },
+        
         // P3: a spectator who takes a seat stops being a spectator
         { $push: { seats: seat }, $inc: { players: 1 }, $pull: { spectators: { refId: seat.refId } } },
         { returnDocument: 'after' }
@@ -85,5 +87,21 @@ export async function removeSpectator(id, refId) {
         id,
         { $pull: { spectators: { refId } } },
         { returnDocument: 'after' }
+    );
+}
+// Atomically claim a table when starting a game
+export async function startTableGame(id, session) {
+    return await Table.findOneAndUpdate(
+        {
+            _id: id,
+            gameInProgress: { $ne: true }
+        },
+        {
+            $set: { gameInProgress: true }
+        },
+        {
+            returnDocument: 'after',
+            session
+        }
     );
 }

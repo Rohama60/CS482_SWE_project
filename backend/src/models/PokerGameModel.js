@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const pokerGameSchema = new mongoose.Schema({
     playerIds: [
         { type: mongoose.Schema.Types.ObjectId,
-             ref: 'Player' }
+             ref: 'Account' }
             ],
     guestIds: {
         type: [{
@@ -24,6 +24,29 @@ const pokerGameSchema = new mongoose.Schema({
     bigBlind: { type: Number, required: true },
 
     potSize: {type: Number, default: 0},
+
+    smallBlindPlayerId: {
+        type: String
+    },
+
+    bigBlindPlayerId: {
+        type: String
+    },
+
+    currentBet: {
+        type: Number,
+        default: 0
+    },
+
+    currentTurn: {
+        type: String
+    },
+
+    playerBets: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
 
     round: {
         type: String,

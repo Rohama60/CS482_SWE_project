@@ -28,9 +28,21 @@ const tableSchema = new mongoose.Schema({
         default: []
     },
     
-    bots: {type:Number, default:0},
-    status: {type: String, enum: ['waiting', 'active', 'full'], defult: 'waiting'},
-    avgPot: { type: String, default: '-' },
+    bots: { type: Number, default: 0 },
+
+    status: {
+        type: String,
+        enum: ['waiting', 'active', 'full'],
+        default: 'waiting'
+    },
+
+    // Tracks whether a poker game is currently running
+    gameInProgress: {
+        type: Boolean,
+        default: false
+    },
+
+    avgPot: { type: String, default: '-' },    
     hands: { type: Number, default: 0 },
     isPrivate: { type: Boolean, default: false },
     host: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },

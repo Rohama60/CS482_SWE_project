@@ -1,10 +1,14 @@
 
 
-import {findTableById, removeSeat, updateTable } from '../dao/TableDAO.js'
+import {findTableById, removeSeat, updateTable, startTableGame } from '../dao/TableDAO.js'
 import {createPokerGame, findPokerGameById } from '../dao/PokerGameDAO.js'
 import mongoose from 'mongoose';
 import { getJoiningPlayer } from './JoinTableController.js';
 import { createDeck, shuffleDeck, dealCards } from '../../game/PlayingCards.js';
+import { deductChips } from '../dao/ChipDAO.js';
+
+class GameAlreadyStartedError extends Error {}
+
 const BLIND_BY_STAKE = {
     low: {small: 1, big: 2},
     medium: {small: 5, big: 10},
@@ -42,11 +46,35 @@ const BLIND_BY_STAKE = {
         
         if(!blinds){
             return res.status(400).json({message: 'Invalid stakes'});
-        }console.log('Table ID:', table._id);
+        }
+        const seats = table.seats || [];
+
+        // Require at least two players
+        if (seats.length < 2) {
+            return res.status(400).json({
+                message: 'At least two players are required to start a game'
+            });
+        }
+
+        // Assign blinds based on seating order (initial two-player version)
+        const smallBlindPlayer = seats[0];
+        const bigBlindPlayer = seats[1];
+
+        // Record how much each player contributes
+        const playerBets = {
+            [String(smallBlindPlayer.refId)]: blinds.small,
+            [String(bigBlindPlayer.refId)]: blinds.big
+        };
+
+        // Calculate the initial pot
+        const initialPot = blinds.small + blinds.big;    
+        
+        console.log('Table ID:', table._id);
             console.log('All seats:', table.seats);
             console.log('Registered players:', playerIds);
             console.log('Guests:', guestIds);
-        const deck = shuffleDeck(createDeck())
+        
+            const deck = shuffleDeck(createDeck())
 
         const hands = dealCards(deck, table.seats || []);
 
@@ -54,21 +82,87 @@ const BLIND_BY_STAKE = {
         console.log('Cards remaining in deck:', deck.length);
 
 
-        const game = await createPokerGame({
+       
+// Start a MongoDB session for the transaction
+const session = await mongoose.startSession();
+
+let game;
+
+try {
+    await session.withTransaction(async () => {
+
+        // Claim the table before deducting chips
+    const claimedTable = await startTableGame(tableId, session);
+
+    if (!claimedTable) {
+        throw new GameAlreadyStartedError('A game is already in progress at this table');
+    }
+
+    // Deduct small blind from the first player
+    const smallBlindResult = await deductChips(
+        smallBlindPlayer,
+        blinds.small,
+        session
+    );
+
+    if (!smallBlindResult) {
+        throw new Error('Small blind player has insufficient chips');
+    }
+
+    // Deduct big blind from the second player
+    const bigBlindResult = await deductChips(
+        bigBlindPlayer,
+        blinds.big,
+        session
+    );
+
+    if (!bigBlindResult) {
+        throw new Error('Big blind player has insufficient chips');
+    }
+
+
+        // Create the poker game after deducting blinds
+        game = await createPokerGame({
             tableId: table._id,
             playerIds,
             guestIds,
+
             smallBlind: blinds.small,
             bigBlind: blinds.big,
-            potSize: 0,
-            round: 'dealing',
+
+            smallBlindPlayerId: String(smallBlindPlayer.refId),
+            bigBlindPlayerId: String(bigBlindPlayer.refId),
+
+            currentBet: blinds.big,
+            currentTurn: String(smallBlindPlayer.refId),
+            playerBets,
+
+            potSize: initialPot,
+            round: 'betting1',
+
             deck,
             hands
-        });
-        const io = req.app.get('io');
+        }, session);
+
+            });
+        } finally {
+            await session.endSession();
+        }        const io = req.app.get('io');
 
         io.to(`table-${tableId}`).emit('game-started', {
-            gameId: String(game._id)
+            gameId: String(game._id),
+            game: {
+                _id: String(game._id),
+                smallBlind: game.smallBlind,
+                bigBlind: game.bigBlind,
+                smallBlindPlayerId: game.smallBlindPlayerId,
+                bigBlindPlayerId: game.bigBlindPlayerId,
+                currentBet: game.currentBet,
+                currentTurn: game.currentTurn,
+                playerBets: Object.fromEntries(game.playerBets),
+                potSize: game.potSize,
+                round: game.round
+            }
         });
 
         return res.status(201).json({
@@ -79,6 +173,11 @@ const BLIND_BY_STAKE = {
                 guestIds: game.guestIds,
                 smallBlind: game.smallBlind,
                 bigBlind: game.bigBlind,
+                smallBlindPlayerId: game.smallBlindPlayerId,
+                bigBlindPlayerId: game.bigBlindPlayerId,
+                currentBet: game.currentBet,
+                currentTurn: game.currentTurn,
+                playerBets: game.playerBets,
                 potSize: game.potSize,
                 round: game.round
             },
@@ -87,7 +186,15 @@ const BLIND_BY_STAKE = {
 }
     catch(error){
         console.error('Error creating poker game:', error);
-        res.status(500).json({message: 'Internal server error'});
+         if (error instanceof GameAlreadyStartedError) {
+                return res.status(409).json({
+                    message: error.message
+                });
+            }
+
+            return res.status(500).json({
+                message: 'Internal server error'
+            });
     }
 }
 

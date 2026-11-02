@@ -1,8 +1,8 @@
 import PokerGameModel from '../models/PokerGameModel.js';
 
-export async function createPokerGame(gameData) {
+export async function createPokerGame(gameData, session = null) {
     const game = new PokerGameModel(gameData);
-    return await game.save();
+    return await game.save({ session });
 }
 
 export async function findPokerGameById(id) {
