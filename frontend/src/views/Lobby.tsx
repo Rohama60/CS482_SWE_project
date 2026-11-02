@@ -13,6 +13,7 @@ type LobbyProps = {
 };
 
 
+
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
 
 
@@ -81,8 +82,12 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
   )
 }
 export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
-  const {data: session} = authClient.useSession()
-  const isAuthenticated = Boolean(session)
+ const { data: session, isPending, error: sessionError } = authClient.useSession()
+  const isAuthenticated = Boolean(session?.user)
+
+  console.log('SESSION:', session)
+  console.log('SESSION LOADING:', isPending)
+  console.log('SESSION ERROR:', sessionError)
   const guest = getGuest()
   console.log('CURRENT SESSION:', session)
   console.log('CURRENT GUEST:', guest)

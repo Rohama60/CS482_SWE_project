@@ -54,6 +54,7 @@ function PlayerSeat({
   dealer = false,
   active = false,
   empty = false,
+  showCards = false,
 }: {
   name: string
   chips?: string
@@ -61,6 +62,7 @@ function PlayerSeat({
   dealer?: boolean
   active?: boolean
   empty?: boolean
+  showCards?: boolean
 }) {
   return (
     <div className={`absolute z-20 flex flex-col items-center ${position}`}>
@@ -75,7 +77,11 @@ function PlayerSeat({
         <span className="absolute -left-2 bottom-1 h-7 w-3 rounded-full" style={{ background: '#2b0a0b', border: '1px solid #691d1a' }} />
         <span className="absolute -right-2 bottom-1 h-7 w-3 rounded-full" style={{ background: '#2b0a0b', border: '1px solid #691d1a' }} />
       </div>
-      {!empty && <div className="relative z-10"><CardBacks /></div>}
+      {!empty && showCards && (
+        <div className="relative z-10">
+            <CardBacks />
+        </div>
+        )}
       <div
         className="relative z-10 -mt-1 min-w-28 rounded-xl px-3 py-2 text-center shadow-xl"
         style={{
@@ -461,6 +467,7 @@ useEffect(() => {
                 dealer={index === 0}
                 active={false}
                 position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
+                showCards={gameStarted}
             />
             ))}
                   
