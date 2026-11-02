@@ -102,7 +102,7 @@ export async function GetPlayerHandController(req, res) {
         }
 
         const player = await getJoiningPlayer(req);
-
+       
         if (!player) {
             return res.status(401).json({
                 error: 'Player not authenticated'
@@ -116,7 +116,7 @@ export async function GetPlayerHandController(req, res) {
                 error: 'Game not found'
             });
         }
-
+       
         // Only return the hand belonging to this player.
         const cards = game.hands?.get(String(player.refId));
 
@@ -128,7 +128,8 @@ export async function GetPlayerHandController(req, res) {
 
         return res.status(200).json({ cards });
 
-    } catch (error) {
+    } 
+    catch (error) {
         console.error('Error retrieving hand:', error);
 
         return res.status(500).json({

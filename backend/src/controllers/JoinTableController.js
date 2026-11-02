@@ -23,7 +23,7 @@ export async function getJoiningPlayer(req) {
         };
     }
 
-    const guestId = req.body?.guestId;
+    const guestId = req.body?.guestId ?? req.headers['x-guest-id'];
     if (guestId && mongoose.isValidObjectId(guestId)) {
         const guest = await findGuestById(guestId);
         if (!guest) return null;
