@@ -4,7 +4,7 @@ import {findTableById, removeSeat, updateTable } from '../dao/TableDAO.js'
 import {createPokerGame } from '../dao/PokerGameDAO.js'
 import mongoose from 'mongoose';
 import { getJoiningPlayer } from './JoinTableController.js';
-
+import { createDeck, shuffleDeck, dealCards } from '../../game/PlayingCards.js';
 const BLIND_BY_STAKE = {
     low: {small: 1, big: 2},
     medium: {small: 5, big: 10},
@@ -18,11 +18,12 @@ const BLIND_BY_STAKE = {
         
         // Find the table associated with the provided tableID
         const table = await findTableById(tableId);
-        console.log('TABLE NAME:', table.name);
         
         if(!table){
             return res.status(404).json({message: 'Table not found'});
         }
+        console.log('TABLE NAME:', table.name);
+
 
         console.log('TABLE ID:', table._id);
         console.log('TABLE SEATS:', JSON.stringify(table.seats, null, 2));
@@ -45,6 +46,13 @@ const BLIND_BY_STAKE = {
             console.log('All seats:', table.seats);
             console.log('Registered players:', playerIds);
             console.log('Guests:', guestIds);
+        const deck = shuffleDeck(createDeck())
+
+        const hands = dealCards(deck, table.seats || []);
+
+        console.log('Cards dealt to:', Object.keys(hands));
+        console.log('Cards remaining in deck:', deck.length);
+
 
         const game = await createPokerGame({
             tableId: table._id,
@@ -53,11 +61,22 @@ const BLIND_BY_STAKE = {
             smallBlind: blinds.small,
             bigBlind: blinds.big,
             potSize: 0,
-            round: 'waiting'
+            round: 'dealing',
+            deck,
+            hands
         });
 
-        res.status(201).json({
-            game,
+            return res.status(201).json({
+            game: {
+                _id: game._id,
+                tableId: game.tableId,
+                playerIds: game.playerIds,
+                guestIds: game.guestIds,
+                smallBlind: game.smallBlind,
+                bigBlind: game.bigBlind,
+                potSize: game.potSize,
+                round: game.round
+            },
             seats: table.seats || []
         });
     }
@@ -75,23 +94,28 @@ const BLIND_BY_STAKE = {
             }
 
             const player = await getJoiningPlayer(req);
+            
             if (!player) {
                 return res.status(401).json({ error: 'Log in or play as a guest to leave a table' });
             }
+            
             const table = await findTableById(id);
+            
             if (!table) {
                 return res.status(404).json({ error: 'Table not found' });
             }
+            
             const updatedTable = await removeSeat(id, player);
+            
             if (!updatedTable) {
                 return res.status(400).json({ error: 'Player not found in table' });
             }
-            const status = updatedTable.players >= updatedTable.max ? 'full' : 'active';
             
+            const status = updatedTable.players >= updatedTable.max ? 'full' : 'active';
             const io = req.app.get('io');
+            const finalTable = await updateTable(id, { status });
             io.to(`table-${id}`).emit('table-updated', finalTable);
 
-            const finalTable = await updateTable(id, { status });
             return res.status(200).json({ message: 'Left table', table: finalTable });
         }
         catch (error) {

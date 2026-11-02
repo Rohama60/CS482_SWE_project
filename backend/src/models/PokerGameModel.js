@@ -29,7 +29,7 @@ const pokerGameSchema = new mongoose.Schema({
         type: String,
         enum:
         ['waiting',
-         'dealiing',
+         'dealing',
          'betting1',
          'drawing',
          'betting2',
@@ -37,6 +37,21 @@ const pokerGameSchema = new mongoose.Schema({
          'finished'
         ],
         default: 'waiting'
+    },
+    deck: {
+        type: [{
+            rank: String,
+            suit: String
+        }],
+        default: []
+    },
+    hands: {
+        type: Map,
+        of: [{
+            rank: String,
+            suit: String
+        }],
+        default: {}
     }
 });
 export default mongoose.model('PokerGame', pokerGameSchema);
