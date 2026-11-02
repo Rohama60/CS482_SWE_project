@@ -14,7 +14,7 @@ import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetCo
 import { CreatePokerGameController, LeaveTableController } from '../src/controllers/PokerGameController.js';  
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-
+import { GetPlayerHandController } from '../src/controllers/PokerGameController.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -65,7 +65,7 @@ app.post('/api/complaints', FileComplaintController);
 app.post('/api/auth/reset-password', SelfPasswordResetController);
 app.post('/api/admin/reset-password', AdminPasswordResetController);
 app.post('/api/games', CreatePokerGameController);
-
+app.get('/api/games/:gameId/hand', GetPlayerHandController);
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);

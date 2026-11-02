@@ -1,7 +1,7 @@
 
 
 import {findTableById, removeSeat, updateTable } from '../dao/TableDAO.js'
-import {createPokerGame } from '../dao/PokerGameDAO.js'
+import {createPokerGame, findPokerGameById } from '../dao/PokerGameDAO.js'
 import mongoose from 'mongoose';
 import { getJoiningPlayer } from './JoinTableController.js';
 import { createDeck, shuffleDeck, dealCards } from '../../game/PlayingCards.js';
@@ -65,8 +65,13 @@ const BLIND_BY_STAKE = {
             deck,
             hands
         });
+        const io = req.app.get('io');
 
-            return res.status(201).json({
+        io.to(`table-${tableId}`).emit('game-started', {
+            gameId: String(game._id)
+        });
+
+        return res.status(201).json({
             game: {
                 _id: game._id,
                 tableId: game.tableId,
@@ -79,10 +84,56 @@ const BLIND_BY_STAKE = {
             },
             seats: table.seats || []
         });
-    }
+}
     catch(error){
         console.error('Error creating poker game:', error);
         res.status(500).json({message: 'Internal server error'});
+    }
+}
+
+export async function GetPlayerHandController(req, res) {
+    try {
+        const { gameId } = req.params;
+
+        if (!mongoose.isValidObjectId(gameId)) {
+            return res.status(400).json({
+                error: 'Invalid game ID'
+            });
+        }
+
+        const player = await getJoiningPlayer(req);
+
+        if (!player) {
+            return res.status(401).json({
+                error: 'Player not authenticated'
+            });
+        }
+
+        const game = await findPokerGameById(gameId);
+
+        if (!game) {
+            return res.status(404).json({
+                error: 'Game not found'
+            });
+        }
+
+        // Only return the hand belonging to this player.
+        const cards = game.hands?.get(String(player.refId));
+
+        if (!cards) {
+            return res.status(403).json({
+                error: 'You are not a player in this game'
+            });
+        }
+
+        return res.status(200).json({ cards });
+
+    } catch (error) {
+        console.error('Error retrieving hand:', error);
+
+        return res.status(500).json({
+            error: 'Unable to retrieve cards'
+        });
     }
 }
 

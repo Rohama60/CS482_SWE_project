@@ -173,7 +173,7 @@ type TableSeat = {
 export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
-  const [selected, setSelected] = useState<number[]>([2, 3, 4])
+  const [selected, setSelected] = useState<number[]>([])
   const [hand, setHand] = useState<CardData[]>([])
   const [gameStarted, setGameStarted] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
@@ -201,6 +201,40 @@ const otherPlayers = players.filter(player =>
     "left-4 bottom-[24%] sm:left-10",
     "left-3 top-[27%] sm:left-8"
 ];
+async function fetchMyHand(id: string) {
+    try {
+        const guest = getGuest();
+
+        const response = await fetch(`/api/games/${id}/hand`, {
+            credentials: 'include',
+            headers: guest
+                ? { 'x-guest-id': guest.id }
+                : {}
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to retrieve cards');
+        }
+
+        const suitSymbols: Record<string, string> = {
+            hearts: '♥',
+            diamonds: '♦',
+            clubs: '♣',
+            spades: '♠'
+        };
+
+        setHand(data.cards.map((card: CardData) => ({
+            rank: card.rank,
+            suit: suitSymbols[card.suit] ?? card.suit
+        })));
+
+    } catch (error) {
+        console.error('Error fetching hand:', error);
+        setError('Could not load your cards');
+    }
+}
   async function handleStartGame() {
       setIsStarting(true)
 
@@ -221,9 +255,10 @@ const otherPlayers = players.filter(player =>
           if (!response.ok) {
               throw new Error('Failed to start game')
           }
-          setGameId(data.game._id)
+          setGameId(data.game._id);
           setPlayers(data.seats);
-          setGameStarted(true)
+          setGameStarted(true);
+          await fetchMyHand(data.game._id);
           console.log('Game started with ID:', data.game._id)
 
       } catch (error) {
@@ -331,7 +366,20 @@ useEffect(() => {
     };
 
     socket.on('table-updated', handleTableUpdated);
+    // Listen for the host starting the game
+    const handleGameStarted = (data: { gameId: string }) => {
+        console.log('Game started:', data.gameId);
 
+        setGameId(data.gameId);
+        setGameStarted(true);
+
+        // Get this player's five cards from the backend
+        if (!spectating) {
+            void fetchMyHand(data.gameId);
+        }
+    };
+
+    socket.on('game-started', handleGameStarted);
 
     const handleConnect = () => {
       console.log('Socket connected:', socket.id);
@@ -354,12 +402,13 @@ useEffect(() => {
         active = false;
 
         socket.off('table-updated', handleTableUpdated);
+        socket.off('game-started', handleGameStarted);  
         socket.off('connect', handleConnect);
 
         socket.emit('leave-table-room', table.id);
     };
 
-}, [table.id]);
+}, [table.id, spectating]);
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#090a0c' }}>
       <div className="pointer-events-none fixed inset-0" style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 45%, rgba(90,10,10,0.3), transparent 72%)' }} />
