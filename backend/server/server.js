@@ -85,7 +85,9 @@ io.on('connection', (socket) => {
 async function startingServer() {
     try{
         await mongoClient.connect();
-        await mongoose.connect(process.env.MONGODB_URI);
+        await mongoose.connect(process.env.MONGODB_URI, {
+            dbName: process.env.MONGODB_DB_NAME || 'poker'
+        });
         
         console.log('Connected to MongoDB');
 

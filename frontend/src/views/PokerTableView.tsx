@@ -194,6 +194,11 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatMessages, setChatMessages] = useState([
+    {name: 'Mara', message: 'Good luck at the draw.'},
+    {name: 'Theo', message: 'That pot is getting intersting. '},
+  ])
   const [showTableMenu, setShowTableMenu] = useState(false)
   const [players, setPlayers] = useState<TableSeat[]>([])
   const { data: session } = authClient.useSession();
@@ -214,6 +219,14 @@ const otherPlayers = players.filter(player =>
     "left-4 bottom-[24%] sm:left-10",
     "left-3 top-[27%] sm:left-8"
 ];
+
+function sendChatMessage() {
+  const message = chatMessage.trim();
+  if (!message) return
+  setChatMessages(current => [...current, { name: 'Guest', message }])
+  setChatMessage('')
+}
+
 async function fetchMyHand(id: string) {
     try {
         const guest = getGuest();
@@ -678,16 +691,41 @@ useEffect(() => {
             </button>
           </div>
           )}
-          <div className="flex-1 rounded-2xl border p-5" style={{ background: '#14161b', borderColor: '#292c35' }}>
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table activity</p>
-            <div className="mt-4 space-y-4">
-              <p className="text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.45 }}><strong style={{ color: '#e8e4dc' }}>Theo</strong> raised to $8</p>
-              <p className="text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.45 }}><strong style={{ color: '#e8e4dc' }}>Guest</strong> called $8</p>
-              <p className="text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.45 }}><strong style={{ color: '#e8e4dc' }}>Mara</strong> folded</p>
-              <div className="border-t pt-4" style={{ borderColor: '#292c35' }}>
-                <p className="text-xs italic leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.3 }}>Select the cards you want to replace, then draw.</p>
-              </div>
+          <div className="flex-1 rounded-2xl border p-4" style={{ background: '#14161b', borderColor: '#292c35' }}>
+            <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table Chat</p>
+            <span className="text-xs font-semibold" style={{ color: '#e8e4dc', opacity: 0.35 }}>3 online</span>
             </div>
+            <div className="mt-4 flex max-h-44 flex-col gap-3 overflow-y-auto pr-1" aria-live="polite">
+              {chatMessages.map((message, index) => (
+                <div key={`${message.name}-${index}`}>
+                  <p className="text-xs font-semibold" style={{color: message.name === 'Guest' ? '#f0a097' : '#e8e4dc'}}>{message.name}</p>
+                  <p className="mt -0.5 text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.48 }}>{message.message}</p>
+                </div>
+              ))}
+            </div>
+            <div className= "mt-4 flex gap-2 border-t pt-3" style={{ borderColor: '#292c35' }}>
+              <input
+                value={chatMessage}
+                onChange={event => setChatMessage(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') sendChatMessage()
+                }}
+                className="min-w-0 flex-1 rounded-lg px-3 py-2 text-xs outline-none"
+                style={{ background: '#0d0f13', border: '1px solid #343743', color: '#e8e4dc' }}
+                placeholder= "Message table..."
+                aria-label="Type a message to the table"
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={!chatMessage.trim()}
+                className= "flex h-9 w-9 items-center justify-center rounded-lg border-0 text-sm font-semibold disabled:opacity-40"
+                style={{ background: '#c0392b', color: '#fff' }}
+                aria-label="Send message"
+              >
+                ➤
+              </button>
+            </div>    
           </div>
         </aside>
       </main>
