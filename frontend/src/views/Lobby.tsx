@@ -140,7 +140,13 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          name: config.name,
+          stakes: config.stakes,
+          seats: config.seats,
+          bots: config.Bots ? config.botCount : 0,
+          isPrivate: config.isPrivate,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {

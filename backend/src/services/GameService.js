@@ -44,9 +44,6 @@ export function createGameService(deps) {
             potSize: engine.potSize,
             currentBet: engine.currentBet,
             currentTurn: engine.currentTurn ?? '',
-            playerBets: engine.playerBets,
-            deck: [],
-            hands: engine.hands,
             resultText: pub.resultText,
         };
     }

@@ -178,7 +178,22 @@ type GameState = {
     playerBets: Record<string, number>;
     potSize: number;
     round: string;
+    //filled in by the server once bots/betting are in play
+    participants?: ServerPlayer[];
+    legal?: LegalActions;
+    myHand?: {rank: string; suit: string}[] | null;
+    myTurnToDraw? : boolean;
+    winners?: { refId: string; amount: number; handName: string | null }[];
+    resultText?: string;
+    revealedHands?: Record<string, {rank: string; suit: string}[]>;
 };
+
+type ServerPlayer = { refId: string; displayName: string; isBot: boolean; chips: number; folded: boolean; allIn: boolean; bet: number };
+type LegalActions = { canAct: boolean; toCall?: number; canCheck?: boolean; canCall?: boolean; canRaise?: boolean; minRaise?: number; maxRaise?: number };
+const SERVER_ROUNDS = ['betting1', 'drawing', 'betting2', 'finished'];
+const SUIT_SYMBOLS: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+const ROUND_LABELS: Record<string, string> = { betting1: 'First betting round', drawing: 'Draw', betting2: 'Final betting round', finished: 'Hand over' };
+
 export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
@@ -199,6 +214,8 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   ])
   const [showTableMenu, setShowTableMenu] = useState(false)
   const [players, setPlayers] = useState<TableSeat[]>([])
+  const [raiseBy, setRaiseBy] = useState(0)
+  const [busy, setBusy] = useState(false)
   const { data: session } = authClient.useSession();
   const currentPlayer = players.find(player =>
     player.kind === 'user'
@@ -228,7 +245,61 @@ const needsToCall = amountToCall > 0;
 const isMyTurn =
     !!myPlayerId &&
     game?.currentTurn === String(myPlayerId);
+    
+// Bot game(server-run hand: bots, betting,real draw)
 
+const serverMode = !!game && SERVER_ROUNDS.includes(game.round) && Array.isArray(game.participants);
+const me = serverMode ? game!.participants!.find(p => p.refId === myPlayerId) : undefined;
+const opponents = serverMode ? game!.participants!.filter(p => p.refId !== myPlayerId) : [];
+const myTurn = serverMode && game!.currentTurn === myPlayerId && !spectating;
+const legal = game?.legal;
+
+function guestHeaders(): Record<string, string> {
+  const guest = getGuest();
+  return guest
+    ? { 'x-guest-id': guest.id, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+}
+
+function applyServerGame(g: GameState) {
+  setGame(g);
+  if (g.myHand) {
+    setHand(g.myHand.map(c => ({ rank: c.rank, suit: SUIT_SYMBOLS[c.suit] ?? c.suit })));
+  }
+  setSelected([]);
+  if (g.round === 'finished') void fetchMyChips();
+}
+
+async function refreshGame(id: string) {
+  try {
+    const response = await fetch(`/api/bot-games/${id}`, { credentials: 'include', headers: guestHeaders() });
+    const data = await response.json();
+    if (response.ok && data.game) applyServerGame(data.game);
+  } catch (e) {
+    console.error('Could not refresh game', e);
+  }
+}
+
+async function sendToGame(path: 'action' | 'draw', body: object) {
+  if (!gameId || busy) return;
+  setBusy(true);
+  setError('');
+  try {
+    const response = await fetch(`/api/bot-games/${gameId}/${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: guestHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'That move was not allowed');
+    applyServerGame(data.game);
+  } catch (e) {
+    setError(e instanceof Error ? e.message : 'That move was not allowed');
+  } finally {
+    setBusy(false);
+  }
+}
   const PLAYER_POSITIONS = [
     "left-1/2 top-4 -translate-x-1/2",
     "right-3 top-[27%] sm:right-8",
@@ -311,11 +382,9 @@ async function fetchMyHand(id: string) {
       setIsStarting(true)
 
       try {
-          const response = await fetch('/api/games', {
+          const response = await fetch('/api/bot-games', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: guestHeaders(),
               credentials: 'include',
               body: JSON.stringify({ 
                   tableId: table.id 
@@ -325,13 +394,12 @@ async function fetchMyHand(id: string) {
           const data = await response.json()
 
           if (!response.ok) {
-              throw new Error('Failed to start game')
+              throw new Error(data.message || data.error || 'Failed to start game')
           }
           setGameId(data.game._id);
-          setGame(data.game);
-          setPlayers(data.seats);
+          applyServerGame(data.game);
+          setPlayers(data.seats ?? []);
           setGameStarted(true);
-          await fetchMyHand(data.game._id);
           await fetchMyChips();
           console.log('Game started with ID:', data.game._id)
 
@@ -458,10 +526,20 @@ useEffect(() => {
       setGameStarted(true);
 
       if (!spectating) {
-          void fetchMyHand(data.gameId);
+        // Bot games send a full private view; older games load the hand seprately
+          if(data.game.participants) void refreshGame(data.gameId);
+          else void fetchMyHand(data.gameId);
           void fetchMyChips();
       }
   };
+
+  // Bots and other players move on the server: reload our private view
+    
+    const handleGameUpdated = (data: { gameId: string;}) => {
+      if (!spectating) void refreshGame(data.gameId);
+    };
+
+    socket.on('game-updated', handleGameUpdated);
 
     socket.on('game-started', handleGameStarted);
 
@@ -486,7 +564,8 @@ useEffect(() => {
         active = false;
 
         socket.off('table-updated', handleTableUpdated);
-        socket.off('game-started', handleGameStarted);  
+        socket.off('game-started', handleGameStarted);
+        socket.off('game-updated', handleGameUpdated); 
         socket.off('connect', handleConnect);
 
         socket.emit('leave-table-room', table.id);
@@ -521,7 +600,7 @@ useEffect(() => {
           <div className="text-right">
             <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Your balance</p>
           <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
-              {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+              {serverMode && me ? `$${me.chips}` : chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
           </p>
           </div>
           <button
@@ -588,12 +667,29 @@ useEffect(() => {
                         >
                           ${game?.potSize ?? 0}
                           </p>
+                          {serverMode && (
+                            <p className = "mt-1 text-xs" style={{ color: '#e8e4dc', opacity: 0.55 }}>
+                              {ROUND_LABELS[game!.round]}{game!.round === 'finished' && game!.resultText ? ` . ${game!.resultText}` : ''}
+                          </p>
+                          )}
                           </>       
                     )}              
               
             </div>
 
-            {otherPlayers.map((player, index) => {
+            {serverMode && opponents.map((player, index) => (
+              <PlayerSeat
+                key={`${player.refId}`}
+                name={`${player.displayName}${player.folded ? ' · folded' : player.allIn ? ' · all-in' : ''}`}
+                chips={`$${player.chips}`}
+                dealer={player.refId === game!.smallBlindPlayerId}
+                active={game!.currentTurn === player.refId}
+                position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
+                showCards={!player.folded}
+              />
+            ))}
+
+            {!serverMode && otherPlayers.map((player, index) => {
     const isSmallBlind =
         game?.smallBlindPlayerId === String(player.refId);
 
@@ -695,7 +791,7 @@ useEffect(() => {
 
                 <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>·</span>
                 <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
-                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+                  {serverMode && me ? `$${me.chips}` : chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
               </p>
               </div>
             </div>
@@ -729,7 +825,55 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-          ) : gameStarted ? (
+          ) : serverMode ? (
+            <div className="mt-3 flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between" style={{ background: '#14161b', borderColor: '#292c35' }}>
+            <div className="px-2">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>{ROUND_LABELS[game!.round]}</p>
+              <p className="text-sm font-semibold" style={{ color: game!.round === 'finished' ? '#4ade80' : '#e8e4dc' }}>
+                {game!.round === 'finished'
+                  ? (game!.resultText || 'Hand over')
+                  : myTurn
+                    ? (game!.round === 'drawing' ? 'Your turn: pick cards to replace' : legal?.canCall ? `Your turn: $${legal.toCall} to call` : 'Your turn: check or bet')
+                    : me?.folded ? 'You folded' : `Waiting for ${game!.participants!.find(p => p.refId === game!.currentTurn)?.displayName ?? 'other players'}...`}
+              </p>
+              {error && <p className="text-xs text-red-400">{error}</p>}
+            </div>
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              {game!.round === 'finished' ? (
+                <button className="w-full rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:w-auto" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={handleStartGame} disabled={isStarting}>
+                  {isStarting ? 'Dealing...' : 'Deal next hand'}
+                </button>
+              ) : game!.round === 'drawing' ? (
+                <>
+                  <button disabled={!myTurn || busy} className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40 sm:flex-none" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); void sendToGame('draw', { discard: [] }) }}>
+                    Stand pat
+                  </button>
+                  <button disabled={!myTurn || busy} className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold disabled:opacity-40 sm:flex-none" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={draw}>
+                    {selected.length ? `Draw ${selected.length}` : 'Draw'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
+                  {legal?.canCall
+                    ? <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
+                    : <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
+                  {myTurn && legal?.canRaise && (
+                    <>
+                      <input type="number" aria-label="Raise amount" min={legal.minRaise} max={legal.maxRaise} step={legal.minRaise}
+                        value={raiseBy || legal.minRaise} onChange={e => setRaiseBy(Number(e.target.value))}
+                        className="w-24 rounded-lg px-3 py-2 text-sm" style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }} />
+                      <button disabled={busy} className="rounded-xl px-6 py-3 text-sm font-semibold" style={{ background: '#B45309', border: '1px solid #343743', color: '#e8e4dc' }}
+                        onClick={() => void sendToGame('action', { type: 'raise', amount: raiseBy || legal.minRaise })}>
+                        Raise
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+           ) : gameStarted ? (
           <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="flex items-center gap-3 px-2">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(192,57,43,0.45)', color: '#f0a097' }}>

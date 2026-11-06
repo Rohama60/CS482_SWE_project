@@ -11,10 +11,12 @@ import { JoinTableController, JoinByCodeController } from '../src/controllers/Jo
 import { SpectateTableController, StopSpectatingController } from '../src/controllers/SpectateController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
 import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
-import { CreatePokerGameController, LeaveTableController } from '../src/controllers/PokerGameController.js';  
+import { CreatePokerGameController, LeaveTableController, GetPlayerChipsController } from '../src/controllers/PokerGameController.js';  
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-import { GetPlayerHandController, GetPlayerChipsController } from '../src/controllers/PokerGameController.js';
+import { GetPlayerHandController } from '../src/controllers/PokerGameController.js';
+import { CreateBotGameController, BotGameActionController, BotGameDrawController, GetBotGameController, GetTableBotGameController, FoldBotGamePlayerOnLeave } from '../src/controllers/BotGameController.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,7 +53,7 @@ app.get('/api/tables', GetTablesController);
 app.get('/api/tables/mine', GetMyTablesController);
 app.post('/api/tables/join-code', JoinByCodeController);
 app.post('/api/tables/:id/join', JoinTableController);
-app.post('/api/tables/:id/leave', LeaveTableController);
+app.post('/api/tables/:id/leave', FoldBotGamePlayerOnLeave, LeaveTableController);
 app.post('/api/tables/:id/spectate', SpectateTableController);
 app.post('/api/tables/:id/stop-spectating', StopSpectatingController);
 app.get('/api/tables/:id', GetTableByIdController);
@@ -68,6 +70,11 @@ app.post('/api/admin/reset-password', AdminPasswordResetController);
 app.post('/api/games', CreatePokerGameController);
 app.get('/api/games/:gameId/hand', GetPlayerHandController);
 app.get('/api/players/me/chips', GetPlayerChipsController);
+app.post('/api/bot-games', CreateBotGameController);
+app.post('/api/bot-games/:gameId/action', BotGameActionController);
+app.post('/api/bot-games/:gameId/draw', BotGameDrawController);
+app.get('/api/bot-games/:gameId', GetBotGameController);
+app.get('/api/tables/:id/bot-game', GetTableBotGameController);
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
