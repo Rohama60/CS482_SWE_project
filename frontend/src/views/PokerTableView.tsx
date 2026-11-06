@@ -8,21 +8,6 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type CardData = { rank: string; suit: string }
 
-const STARTING_HAND: CardData[] = [
-  { rank: 'A', suit: '♠' },
-  { rank: 'A', suit: '♥' },
-  { rank: '10', suit: '♦' },
-  { rank: '7', suit: '♣' },
-  { rank: '3', suit: '♥' },
-]
-
-const DRAWN_HAND: CardData[] = [
-  { rank: 'A', suit: '♠' },
-  { rank: 'A', suit: '♥' },
-  { rank: 'A', suit: '♦' },
-  { rank: 'K', suit: '♣' },
-  { rank: '3', suit: '♠' },
-]
 
 
 function BetChips({ amount, position, tone = 'red' }: { amount: string; position: string; tone?: 'red' | 'black' | 'cream' }) {
@@ -190,6 +175,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [gameStarted, setGameStarted] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
+  const [chipBalance, setChipBalance] = useState<number | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
@@ -214,6 +200,29 @@ const otherPlayers = players.filter(player =>
     "left-4 bottom-[24%] sm:left-10",
     "left-3 top-[27%] sm:left-8"
 ];
+async function fetchMyChips() {
+    try {
+        const guest = getGuest();
+
+        const response = await fetch('/api/players/me/chips', {
+            credentials: 'include',
+            headers: guest
+                ? { 'x-guest-id': guest.id }
+                : {}
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch chips');
+        }
+
+        setChipBalance(data.chipamount);
+
+    } catch (error) {
+        console.error('Error fetching chips:', error);
+    }
+}
 async function fetchMyHand(id: string) {
     try {
         const guest = getGuest();
@@ -298,7 +307,7 @@ async function fetchMyHand(id: string) {
   }
 
   function newHand() {
-    setHand(STARTING_HAND)
+    setHand()
     setSelected([2, 3, 4])
     setComplete(false)
   }
@@ -370,6 +379,7 @@ useEffect(() => {
         } catch (error) {
             console.error('Error fetching players:', error);
         }
+
     }
 
    const handleTableUpdated = (updatedTable: { seats: TableSeat[] }) => {
@@ -611,7 +621,7 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : gameStarted ? (
           <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="flex items-center gap-3 px-2">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(192,57,43,0.45)', color: '#f0a097' }}>
@@ -632,23 +642,50 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex w-full gap-2 sm:w-auto">
+             
               {!complete ? (
                 <>
-                  <button className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold sm:flex-none" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
-                    Stand pat
+                {/* Player Starts, not Big blind or small blind, or someone raises  */}
+                 
+                  <button className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Call
                   </button>
-                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:flex-none" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={draw}>
-                    {selected.length ? `Draw ${selected.length}` : 'Draw'}
+                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#B45309', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Raise
+                  </button>
+                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Fold
+                  </button>
+                  
+                  {/* Player Starts, is big blind  */}
+                  <button className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Check
+                  </button>
+                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Raise
+                  </button>
+                   <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Fold
+                  </button>
+                  {/* Player Starts, is small blind  */}
+                    <button className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#47515803D569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Call
+                  </button>
+                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: '#B45309', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Raise
+                  </button>
+                   <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
+                    Fold
                   </button>
                 </>
               ) : (
-                <button className="w-full rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:w-auto" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={newHand}>
-                  Deal next hand
-                </button>
+                 <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:flex-none" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={draw}>
+                    {selected.length ? `Draw ${selected.length}` : 'Draw'}
+                  </button> 
               )}
             </div>
           </div>
-          )}
+          ) : null }
         </div>
 
         <aside className="hidden w-60 shrink-0 flex-col gap-4 lg:flex">
@@ -663,7 +700,7 @@ useEffect(() => {
               ))}
             </div>
           </div>
-          {!spectating && (
+          {!spectating && gameStarted && (
           <div className="rounded-2xl border p-5" style={{ background: 'linear-gradient(145deg, rgba(107,16,16,0.42), rgba(28,30,37,0.8))', borderColor: 'rgba(192,57,43,0.45)' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Your hand</p>
             <p className="mt-2 text-lg font-semibold" style={{ color: complete ? '#4ade80' : '#e8e4dc', fontFamily: 'var(--font-display)' }}>
