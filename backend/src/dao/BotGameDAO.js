@@ -34,10 +34,13 @@ export async function runInTransaction(fn) {
     }
 }
 
-// Adds (or with a negative number, removes) chips. Used to settle a hand.
+// Adds or removes chips while a hand is being played.
 export async function addChips(player, amount, session) {
     const Model = player.kind === 'user' ? Account : Guest;
-    return Model.findOneAndUpdate({ _id: player.refId }, { $inc: { chipamount: amount } }, { new: true, session });
+    const filter = amount < 0
+        ? { _id: player.refId, chipamount: { $gte: -amount } }
+        : { _id: player.refId };
+    return Model.findOneAndUpdate(filter, { $inc: { chipamount: amount } }, { new: true, session });
 }
 
 export async function getChipBalance(player) {

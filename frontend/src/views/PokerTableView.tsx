@@ -263,14 +263,16 @@ function applyServerGame(g: GameState) {
     setHand(g.myHand.map(c => ({ rank: c.rank, suit: SUIT_SYMBOLS[c.suit] ?? c.suit })));
   }
   setSelected([]);
-  if (g.round === 'finished') void fetchMyChips();
 }
 
 async function refreshGame(id: string) {
   try {
     const response = await fetch(`/api/bot-games/${id}`, { credentials: 'include', headers: guestHeaders() });
     const data = await response.json();
-    if (response.ok && data.game) applyServerGame(data.game);
+    if (response.ok && data.game) {
+      applyServerGame(data.game);
+      void fetchMyChips();
+    }
   } catch (e) {
     console.error('Could not refresh game', e);
   }
@@ -290,6 +292,7 @@ async function sendToGame(path: 'action' | 'draw', body: object) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'That move was not allowed');
     applyServerGame(data.game);
+    await fetchMyChips();
   } catch (e) {
     setError(e instanceof Error ? e.message : 'That move was not allowed');
   } finally {
@@ -417,7 +420,8 @@ async function fetchMyHand(id: string) {
   }
 
   function draw() {
-    console.log("Cards selected for replacement", selected)
+    if (!myTurn || busy) return;
+    void sendToGame('draw', { discard: selected });
   }
 
   function newHand() {

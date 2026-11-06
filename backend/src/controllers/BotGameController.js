@@ -68,7 +68,11 @@ export async function BotGameDrawController(req, res) {
         const player = await currentPlayer(req, res); if (!player) return;
         const { gameId } = req.params;
         if (!mongoose.isValidObjectId(gameId)) return res.status(400).json({ message: 'Invalid game ID' });
-        const game = await service.draw(gameId, player, req.body?.discard ?? []);
+        const discard = req.body?.discard;
+        if (discard !== undefined && !Array.isArray(discard)) {
+            return res.status(400).json({ message: 'Discard must be an array of card indexes' });
+        }
+        const game = await service.draw(gameId, player, discard ?? []);
         service.runBots(gameId);
         return res.status(200).json({ game: await service.viewFor(game, player) });
     } catch (error) { return sendError(res, error); }

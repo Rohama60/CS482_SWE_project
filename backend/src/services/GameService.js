@@ -70,25 +70,34 @@ export function createGameService(deps) {
         emit(tableOf(game), 'game-updated', { gameId: String(game._id), game: toPublicState(game.engine), handNumber: game.handNumber });
     }
 
-    // Pays out chips to humans and frees the table. Runs once, inside one transaction.
-    async function settle(game, engine) {
-        await gameDao.runInTransaction(async session => {
-            for (const p of engine.participants) {
-                if (p.kind === 'bot') continue;
-                const delta = p.chips - game.startChips[p.refId];
-                if (delta !== 0) await chipDao.addChips({ kind: p.kind, refId: p.refId }, delta, session);
-            }
-            await tableDao.finishTableGame(tableOf(game), session);
-            await gameDao.updatePokerGame(game._id, { settled: true }, session);
-        });
-        game.settled = true;
+    async function applyChipChanges(engine, previousChips, session) {
+        for (const player of engine.participants) {
+            if (player.kind === 'bot') continue;
+            const previous = previousChips.get(player.refId);
+            const delta = player.chips - previous;
+            if (delta === 0) continue;
+
+            const updated = await chipDao.addChips(
+                { kind: player.kind, refId: player.refId },
+                delta,
+                session
+            );
+            if (!updated) throw new GameRuleError('Unable to update player chip balance');
+        }
     }
 
-    // Saves the new engine state, settles if the hand just ended, tells the table
-    async function commit(game, engine) {
-        await gameDao.updatePokerGame(game._id, { engine, ...mirror(engine) });
+    // Saves the new engine state and applies chip changes atomically.
+    async function commit(game, engine, previousChips) {
+        await gameDao.runInTransaction(async session => {
+            if (previousChips) await applyChipChanges(engine, previousChips, session);
+            await gameDao.updatePokerGame(game._id, { engine, ...mirror(engine) }, session);
+            if (engine.round === 'finished' && !game.settled) {
+                await tableDao.finishTableGame(tableOf(game), session);
+                await gameDao.updatePokerGame(game._id, { settled: true }, session);
+            }
+        });
         game.engine = engine;
-        if (engine.round === 'finished' && !game.settled) await settle(game, engine);
+        if (engine.round === 'finished') game.settled = true;
         await broadcast(game);
     }
 
@@ -136,6 +145,11 @@ export function createGameService(deps) {
                 participants, smallBlind: blinds.small, bigBlind: blinds.big,
                 deck: shuffleDeck(createDeck()), rotate: handNumber,
             });
+            await applyChipChanges(
+                engine,
+                new Map(participants.map(player => [String(player.refId), player.chips])),
+                session
+            );
             game = await gameDao.createPokerGame({
                 tableId: table._id,
                 playerIds: seats.filter(s => s.kind === 'user').map(s => s.refId),
@@ -157,8 +171,9 @@ export function createGameService(deps) {
     async function act(gameId, player, action) {
         return withLock(String(gameId), async () => {
             const game = await load(gameId);
+            const previousChips = new Map(game.engine.participants.map(p => [p.refId, p.chips]));
             applyBettingAction(game.engine, String(player.refId), action);
-            await commit(game, game.engine);
+            await commit(game, game.engine, previousChips);
             return game;
         });
     }
@@ -166,8 +181,9 @@ export function createGameService(deps) {
     async function draw(gameId, player, indexes) {
         return withLock(String(gameId), async () => {
             const game = await load(gameId);
+            const previousChips = new Map(game.engine.participants.map(p => [p.refId, p.chips]));
             applyDraw(game.engine, String(player.refId), indexes);
-            await commit(game, game.engine);
+            await commit(game, game.engine, previousChips);
             return game;
         });
     }
@@ -178,8 +194,9 @@ export function createGameService(deps) {
         if (!game?.engine || game.engine.round === 'finished') return null;
         return withLock(String(game._id), async () => {
             const fresh = await load(game._id);
+            const previousChips = new Map(fresh.engine.participants.map(p => [p.refId, p.chips]));
             forceFold(fresh.engine, String(player.refId));
-            await commit(fresh, fresh.engine);
+            await commit(fresh, fresh.engine, previousChips);
             return fresh;
         });
     }
@@ -192,6 +209,7 @@ export function createGameService(deps) {
         return withLock(String(gameId), async () => {
             const game = await load(gameId);
             const engine = game.engine;
+            const previousChips = new Map(engine.participants.map(p => [p.refId, p.chips]));
             const turn = engine.participants.find(p => p.refId === engine.currentTurn);
             if (engine.round === 'finished' || !turn || turn.kind !== 'bot') return false;
             if (engine.round === 'drawing') applyDraw(engine, turn.refId, decideDraw(engine, turn.refId));
@@ -200,7 +218,7 @@ export function createGameService(deps) {
                 try { applyBettingAction(engine, turn.refId, action); }
                 catch { applyBettingAction(engine, turn.refId, getLegalActions(engine, turn.refId).canCheck ? { type: 'check' } : { type: 'fold' }); }
             }
-            await commit(game, engine);
+            await commit(game, engine, previousChips);
             return true;
         });
     }
