@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { LoginController } from '../src/controllers/LoginController.js';
+import { GetChatController, registerChatHandlers } from '../src/controllers/ChatController.js';
 import { GetFriendsController, GetFriendRequestsController, SendFriendRequestController, AcceptFriendRequestController, DeclineFriendRequestController, RemoveFriendController } from '../src/controllers/FriendController.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
@@ -61,6 +62,7 @@ app.post('/api/tables/:id/join', JoinTableController);
 app.post('/api/tables/:id/leave', LeaveTableController);
 app.post('/api/tables/:id/spectate', SpectateTableController);
 app.post('/api/tables/:id/stop-spectating', StopSpectatingController);
+app.get('/api/tables/:id/chat', GetChatController);
 app.get('/api/tables/:id', GetTableByIdController);
 app.put('/api/tables/:id', UpdateTableController);
 app.delete('/api/tables/:id', DeleteTableController);
@@ -89,6 +91,8 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('A user disconnected:', socket.id);
     });
+    // M3: table chat
+    registerChatHandlers(io, socket);
 });
 
 async function startingServer() {
