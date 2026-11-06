@@ -19,3 +19,11 @@ export async function deductChips(player, amount, session) {
         }
     );
 }
+export async function getPlayerChips(player) {
+    const Model = player.kind === 'user' ? Account : Guest;
+
+    const account = await Model.findById(player.refId)
+        .select('chipamount');
+
+    return account;
+}

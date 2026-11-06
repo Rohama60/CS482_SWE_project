@@ -8,21 +8,6 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type CardData = { rank: string; suit: string }
 
-const STARTING_HAND: CardData[] = [
-  { rank: 'A', suit: '♠' },
-  { rank: 'A', suit: '♥' },
-  { rank: '10', suit: '♦' },
-  { rank: '7', suit: '♣' },
-  { rank: '3', suit: '♥' },
-]
-
-const DRAWN_HAND: CardData[] = [
-  { rank: 'A', suit: '♠' },
-  { rank: 'A', suit: '♥' },
-  { rank: 'A', suit: '♦' },
-  { rank: 'K', suit: '♣' },
-  { rank: '3', suit: '♠' },
-]
 
 
 function BetChips({ amount, position, tone = 'red' }: { amount: string; position: string; tone?: 'red' | 'black' | 'cream' }) {
@@ -55,6 +40,8 @@ function PlayerSeat({
   active = false,
   empty = false,
   showCards = false,
+  blindLabel = '',
+  blindAmount = 0
 }: {
   name: string
   chips?: string
@@ -63,6 +50,8 @@ function PlayerSeat({
   active?: boolean
   empty?: boolean
   showCards?: boolean
+  blindLabel?: string
+  blindAmount?: number
 }) {
   return (
     <div className={`absolute z-20 flex flex-col items-center ${position}`}>
@@ -99,6 +88,14 @@ function PlayerSeat({
         ) : (
           <>
             <p className="truncate text-xs font-semibold" style={{ color: '#e8e4dc' }}>{name}</p>
+            {blindLabel && (
+            <p
+                className="mt-1 text-[0.65rem] font-bold"
+                style={{ color: '#fbbf24' }}
+            >
+                {blindLabel} · ${blindAmount}
+            </p>
+        )}
             <p className="mt-0.5 text-xs" style={{ color: active ? '#f0a097' : '#e8e4dc', opacity: active ? 1 : 0.45 }}>{chips}</p>
           </>
         )}
@@ -190,6 +187,7 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [gameStarted, setGameStarted] = useState(false)
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
+  const [chipBalance, setChipBalance] = useState<number | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState('')
   const [complete, setComplete] = useState(false)
@@ -211,6 +209,25 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
 const otherPlayers = players.filter(player =>
     player.refId !== currentPlayer?.refId
 );
+// Current player's betting information
+const myPlayerId = currentPlayer?.refId;
+
+const myBet = myPlayerId
+    ? game?.playerBets?.[String(myPlayerId)] ?? 0
+    : 0;
+
+const currentBet = game?.currentBet ?? 0;
+
+// Additional chips needed to match the highest bet
+const amountToCall = Math.max(0, currentBet - myBet);
+
+// Determine which buttons to display
+const needsToCall = amountToCall > 0;
+
+// Only allow betting controls on the player's turn
+const isMyTurn =
+    !!myPlayerId &&
+    game?.currentTurn === String(myPlayerId);
 
   const PLAYER_POSITIONS = [
     "left-1/2 top-4 -translate-x-1/2",
@@ -220,12 +237,41 @@ const otherPlayers = players.filter(player =>
     "left-3 top-[27%] sm:left-8"
 ];
 
+async function fetchMyChips() {
+    try {
+        const guest = getGuest();
+
+        const response = await fetch('/api/players/me/chips', {
+            credentials: 'include',
+            headers: guest
+                ? { 'x-guest-id': guest.id }
+                : {}
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch chips');
+        }
+
+        setChipBalance(data.chipamount);
+
+    } catch (error) {
+        console.error('Error fetching chips:', error);
+    }
+   
+}
+useEffect(() => {
+    void fetchMyChips();
+  }, []);
+
 function sendChatMessage() {
   const message = chatMessage.trim();
   if (!message) return
   setChatMessages(current => [...current, { name: 'Guest', message }])
   setChatMessage('')
 }
+
 
 async function fetchMyHand(id: string) {
     try {
@@ -286,6 +332,7 @@ async function fetchMyHand(id: string) {
           setPlayers(data.seats);
           setGameStarted(true);
           await fetchMyHand(data.game._id);
+          await fetchMyChips();
           console.log('Game started with ID:', data.game._id)
 
       } catch (error) {
@@ -300,19 +347,24 @@ async function fetchMyHand(id: string) {
       }
   }
   function toggleCard(index: number) {
-    if (complete || spectating) return
-    setSelected(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index])
+   if (complete || spectating || game?.round !== 'drawing') {
+        return;
+    }
+
+    setSelected(current =>
+        current.includes(index)
+            ? current.filter(i => i !== index)
+            : [...current, index]
+    );
   }
 
   function draw() {
-    setHand(current => current.map((card, index) => selected.includes(index) ? DRAWN_HAND[index] : card))
-    setSelected([])
-    setComplete(true)
+    console.log("Cards selected for replacement", selected)
   }
 
   function newHand() {
-    setHand(STARTING_HAND)
-    setSelected([2, 3, 4])
+    setHand([])
+    setSelected([])
     setComplete(false)
   }
   async function handleLeaveTable() {
@@ -383,6 +435,7 @@ useEffect(() => {
         } catch (error) {
             console.error('Error fetching players:', error);
         }
+
     }
 
    const handleTableUpdated = (updatedTable: { seats: TableSeat[] }) => {
@@ -406,6 +459,7 @@ useEffect(() => {
 
       if (!spectating) {
           void fetchMyHand(data.gameId);
+          void fetchMyChips();
       }
   };
 
@@ -466,7 +520,9 @@ useEffect(() => {
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Your balance</p>
-            <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>$500</p>
+          <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
+              {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+          </p>
           </div>
           <button
             onClick={() => setShowHelp(true)}
@@ -537,19 +593,45 @@ useEffect(() => {
               
             </div>
 
-            {otherPlayers.map((player, index) => (
-              
+            {otherPlayers.map((player, index) => {
+    const isSmallBlind =
+        game?.smallBlindPlayerId === String(player.refId);
+
+    const isBigBlind =
+        game?.bigBlindPlayerId === String(player.refId);
+
+        return (
             <PlayerSeat
                 key={`${player.kind}-${player.refId}`}
                 name={player.displayName}
-                chips="$500"
+                chips={`$${500 - (
+                    isSmallBlind
+                        ? game?.smallBlind ?? 0
+                        : isBigBlind
+                            ? game?.bigBlind ?? 0
+                            : 0
+                )}`}
                 dealer={index === 0}
-                active={false}
+                active={game?.currentTurn === String(player.refId)}
                 position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
                 showCards={gameStarted}
+                blindLabel={
+                    isSmallBlind
+                        ? 'Small Blind (SB)'
+                        : isBigBlind
+                            ? 'Big Blind (BB)'
+                            : ''
+                }
+                blindAmount={
+                    isSmallBlind
+                        ? game?.smallBlind ?? 0
+                        : isBigBlind
+                            ? game?.bigBlind ?? 0
+                            : 0
+                }
             />
-            ))}
-                  
+        );
+    })}
             {gameStarted && game && (
                 <>
                     <BetChips
@@ -589,9 +671,32 @@ useEffect(() => {
               )}
               </div>
               <div className="relative z-10 flex items-center gap-2 rounded-xl px-4 py-2 shadow-xl" style={{ background: '#17191f', border: '1px solid #c0392b' }}>
-                <span className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>{currentPlayer?.displayName || 'You' }</span>
+              <div className="flex flex-col items-center">
+              <span
+                  className="text-xs font-semibold"
+                  style={{ color: '#e8e4dc' }}
+              >
+                  {currentPlayer?.displayName || 'You'}
+              </span>
+
+              {game?.smallBlindPlayerId === String(currentPlayer?.refId) && (
+                  <span className="text-[0.65rem] font-bold" style={{ color: '#fbbf24' }}>
+                      Small Blind · ${game.smallBlind}
+                  </span>
+              )}
+
+              {game?.bigBlindPlayerId === String(currentPlayer?.refId) && (
+                  <span className="text-[0.65rem] font-bold" style={{ color: '#fbbf24' }}>
+                      Big Blind · ${game.bigBlind}
+                  </span>
+              )}
+          </div>
+
+
                 <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>·</span>
-                <span className="text-xs font-semibold" style={{ color: '#f0a097' }}>$488</span>
+                <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
+                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+              </p>
               </div>
             </div>
           </div>
@@ -624,7 +729,7 @@ useEffect(() => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : gameStarted ? (
           <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="flex items-center gap-3 px-2">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(192,57,43,0.45)', color: '#f0a097' }}>
@@ -645,23 +750,87 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex w-full gap-2 sm:w-auto">
-              {!complete ? (
-                <>
-                  <button className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold sm:flex-none" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); setComplete(true) }}>
-                    Stand pat
-                  </button>
-                  <button className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:flex-none" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={draw}>
-                    {selected.length ? `Draw ${selected.length}` : 'Draw'}
-                  </button>
-                </>
-              ) : (
-                <button className="w-full rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:w-auto" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={newHand}>
-                  Deal next hand
+             
+              {game?.round === 'betting1' ? (
+                isMyTurn ? (
+                    <>
+                        {needsToCall ? (
+                            // SCENARIO 1: Player needs to call
+                            <button
+                                className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold sm:flex-none hover:brightness-110"
+                                style={{
+                                    background: '#15803D',
+                                    border: '1px solid #343743',
+                                    color: '#e8e4dc'
+                                }}
+                                onClick={() => console.log('Call')}
+                            >
+                                Call ${amountToCall}
+                            </button>
+                        ) : (
+                            // SCENARIO 2: Player can check
+                            <button
+                                className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold sm:flex-none hover:brightness-110"
+                                style={{
+                                    background: '#475569',
+                                    border: '1px solid #343743',
+                                    color: '#e8e4dc'
+                                }}
+                                onClick={() => console.log('Check')}
+                            >
+                                Check
+                            </button>
+                        )}
+
+                        {/* Raise is available in both scenarios */}
+                        <button
+                            className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110"
+                            style={{
+                                background: '#B45309',
+                                border: '1px solid #343743',
+                                color: '#e8e4dc'
+                            }}
+                            onClick={() => console.log('Raise')}
+                        >
+                            Raise
+                        </button>
+
+                        {/* Fold is available in both scenarios */}
+                        <button
+                            className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold sm:flex-none hover:brightness-110"
+                            style={{
+                                background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                                border: '1px solid #343743',
+                                color: '#e8e4dc'
+                            }}
+                            onClick={() => console.log('Fold')}
+                        >
+                            Fold
+                        </button>
+                    </>
+                ) : (
+                    <span
+                        className="text-sm"
+                        style={{ color: '#e8e4dc', opacity: 0.6 }}
+                    >
+                        Waiting for another player...
+                    </span>
+                )
+            ) : game?.round === 'drawing' ? (
+                <button
+                    className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold transition-all hover:brightness-110 sm:flex-none"
+                    style={{
+                        background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                        color: '#fff'
+                    }}
+                    onClick={draw}
+                >
+                    {selected.length ? `Draw ${selected.length}` : 'Stand Pat'}
                 </button>
-              )}
+            ) : null}
             </div>
           </div>
-          )}
+          ) : null }
         </div>
 
         <aside className="hidden w-60 shrink-0 flex-col gap-4 lg:flex">
@@ -676,7 +845,7 @@ useEffect(() => {
               ))}
             </div>
           </div>
-          {!spectating && (
+          {!spectating && gameStarted && (
           <div className="rounded-2xl border p-5" style={{ background: 'linear-gradient(145deg, rgba(107,16,16,0.42), rgba(28,30,37,0.8))', borderColor: 'rgba(192,57,43,0.45)' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Your hand</p>
             <p className="mt-2 text-lg font-semibold" style={{ color: complete ? '#4ade80' : '#e8e4dc', fontFamily: 'var(--font-display)' }}>

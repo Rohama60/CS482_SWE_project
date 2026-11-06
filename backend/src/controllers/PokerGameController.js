@@ -5,7 +5,7 @@ import {createPokerGame, findPokerGameById } from '../dao/PokerGameDAO.js'
 import mongoose from 'mongoose';
 import { getJoiningPlayer } from './JoinTableController.js';
 import { createDeck, shuffleDeck, dealCards } from '../../game/PlayingCards.js';
-import { deductChips } from '../dao/ChipDAO.js';
+import { deductChips, getPlayerChips } from '../dao/ChipDAO.js';
 
 class GameAlreadyStartedError extends Error {}
 
@@ -283,3 +283,34 @@ export async function GetPlayerHandController(req, res) {
         }
 
     }
+
+export async function GetPlayerChipsController(req, res) {
+    try {
+        const player = await getJoiningPlayer(req);
+
+        if (!player) {
+            return res.status(401).json({
+                error: 'Player not authenticated'
+            });
+        }
+
+        const account = await getPlayerChips(player);
+
+        if (!account) {
+            return res.status(404).json({
+                error: 'Player not found'
+            });
+        }
+
+        return res.status(200).json({
+            chipamount: account.chipamount
+        });
+
+    } catch (error) {
+        console.error('Error fetching player chips:', error);
+
+        return res.status(500).json({
+            error: 'Unable to retrieve chip balance'
+        });
+    }
+}
