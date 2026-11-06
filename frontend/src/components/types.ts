@@ -1,1 +1,1 @@
-export type View = 'home' | 'login' | 'signup' | 'lobby' | 'table' | 'createTable';
+export type View = 'home' | 'login' | 'signup' | 'lobby' | 'table' | 'createTable' | 'admin';

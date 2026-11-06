@@ -10,7 +10,7 @@ export function LoginModal({
   onSignUp,
 }: {
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (role?: string) => void
   onSignUp?: () => void
 }) {
   const [showForgotPassword, setShowForgotPassword] = useState(false)
@@ -44,7 +44,8 @@ export function LoginModal({
 
       // Tell the rest of the app to re-check who is logged in, so the name shows right away
       try { authClient.$store.notify('$sessionSignal') } catch { /* page still works without it */ }
-      onSuccess()
+      const role = typeof result.user?.role === 'string' ? result.user.role : undefined
+      onSuccess(role)
     } catch {
       setError('Could not reach the server')
     } finally {
