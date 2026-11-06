@@ -588,9 +588,9 @@ useEffect(() => {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Your balance</p>
+            <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Your total balance</p>
           <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
-              {serverMode && me ? `$${me.chips}` : chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+              {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
           </p>
           </div>
           <button
@@ -781,7 +781,7 @@ useEffect(() => {
 
                 <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>·</span>
                 <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
-                  {serverMode && me ? `$${me.chips}` : chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
               </p>
               </div>
             </div>
@@ -844,10 +844,7 @@ useEffect(() => {
                 </>
               ) : (
                 <>
-                  <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
-                  {legal?.canCall
-                    ? <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
-                    : <button disabled={!myTurn || busy} className="rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
+                  
                   {myTurn && legal?.canRaise && (
                     <>
                       <input type="number" aria-label="Raise amount" min={legal.minRaise} max={legal.maxRaise} step={legal.minRaise}
@@ -859,6 +856,11 @@ useEffect(() => {
                       </button>
                     </>
                   )}
+                  {legal?.canCall
+                    ? <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
+                    : <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
+                  <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold  hover:brightness-110 disabled:opacity-40" style={{ background: '#b81010', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
+
                 </>
               )}
             </div>
