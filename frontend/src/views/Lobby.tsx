@@ -5,6 +5,7 @@ import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
 import { FriendsPage } from './FriendsPage.tsx'
+import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 type LobbyProps = {
   onBack: () => void;
@@ -98,11 +99,23 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  // P11: how many friend requests are waiting, for the badge on the Friends button
+  const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
   const [myTables, setMyTables] = useState<PokerTableData[]>([])
   const [editingTable, setEditingTable] = useState<PokerTableData | null>(null)
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
  
+
+  // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.
+  useEffect(() => {
+    if (!session?.user || showFriends) return
+    let cancelled = false
+    getFriendRequests()
+      .then(requests => { if (!cancelled) setRequestCount(requests.length) })
+      .catch(() => { if (!cancelled) setRequestCount(0) })
+    return () => { cancelled = true }
+  }, [session?.user?.id, showFriends])
 
   useEffect(() => {
     fetch('/api/tables')
@@ -318,7 +331,12 @@ async function handleSignOut() {
 }
 
 if (showFriends && isAuthenticated) {
-    return <FriendsPage onBack={() => setShowFriends(false)} />
+    return (
+      <FriendsPage
+        onBack={() => setShowFriends(false)}
+        onJoinTable={tableId => handleJoin({ id: tableId } as PokerTableData)}
+      />
+    )
   }
 return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
@@ -481,7 +499,11 @@ return (
                   <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full" style={{ background: '#4ade80', border: '1px solid #1c1e25' }} />
                 </span>
                 Friends
-                <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: 'rgba(192,57,43,0.18)', color: '#f0a097' }}>3</span>
+                {requestCount > 0 && (
+                  <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: 'rgba(192,57,43,0.18)', color: '#f0a097' }} title="Friend requests waiting">
+                    {requestCount}
+                  </span>
+                )}
               </button>
             )}
 
