@@ -7,6 +7,8 @@ const TABLE_ID = '507f1f77bcf86cd799439022';
 const mockFindTableById = jest.fn();
 const mockStartTableGame = jest.fn();
 const mockGetJoiningPlayer = jest.fn();
+const mockGetSession = jest.fn();
+const mockAccountFindOne = jest.fn();
 
 const botGameDao = {
     createPokerGame: jest.fn(),
@@ -39,12 +41,24 @@ const mockCreateGameService = jest.fn(deps => {
     return service;
 });
 
-jest.unstable_mockModule('mongoose', () => ({
-    default: { isValidObjectId: id => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id) }
-}));
+
+
 jest.unstable_mockModule('../src/dao/TableDAO.js', () => ({
     findTableById: mockFindTableById,
     startTableGame: mockStartTableGame
+}));
+jest.unstable_mockModule('../src/Auth.js', () => ({
+    auth: {
+        api: {
+            getSession: mockGetSession
+        }
+    }
+}));
+
+jest.unstable_mockModule('../src/models/AccountModel.js', () => ({
+    default: {
+        findOne: mockAccountFindOne
+    }
 }));
 jest.unstable_mockModule('../src/dao/BotGameDAO.js', () => botGameDao);
 jest.unstable_mockModule('../src/controllers/JoinTableController.js', () => ({
@@ -71,17 +85,55 @@ const {
 function makeRes() {
     return { status: jest.fn().mockReturnThis(), json: jest.fn() };
 }
-
 function makeReq({ body = {}, params = {} } = {}) {
     const emit = jest.fn();
     const io = { to: jest.fn(() => ({ emit })) };
-    return { body, params, app: { get: jest.fn(() => io) }, io, emit };
-}
 
+    return {
+        body,
+        params,
+        headers: {
+            cookie: ''
+        },
+        cookies: {},
+        app: { get: jest.fn(() => io) },
+        io,
+        emit
+    };
+}
 const PLAYER = { kind: 'guest', refId: 'h1', displayName: 'Human' };
+const HOST_ID = '507f1f77bcf86cd799439033';
+
+const HOST_TABLE = {
+    _id: TABLE_ID,
+    host: HOST_ID,
+    seats: [
+        {
+            kind: 'user',
+            refId: HOST_ID,
+            displayName: 'Jane Doe',
+            ready: true
+        }
+    ],
+    bots: 1
+};
 const VIEW = { _id: 'g1', round: 'betting1', myHand: [{ rank: 'A', suit: 'spades' }], legal: { canAct: true } };
 
 beforeEach(() => {
+    mockGetSession.mockReset();
+    mockAccountFindOne.mockReset();
+
+    mockGetSession.mockResolvedValue({
+        user: {
+            id: 'user-1',
+            name: 'Jane Doe'
+        }
+    });
+
+    mockAccountFindOne.mockResolvedValue({
+        _id: HOST_ID,
+        userId: 'user-1'
+    });
     for (const fn of [mockFindTableById, mockStartTableGame, mockGetJoiningPlayer, ...Object.values(service)]) {
         fn.mockReset();
     }
@@ -149,11 +201,24 @@ describe('CreateBotGameController', () => {
         expect(res.json).toHaveBeenCalledWith({ message: 'Table not found' });
         expect(service.startGame).not.toHaveBeenCalled();
     });
-
     test('201: starts the hand, tells the room, starts the bots and returns the players view', async () => {
-        const seats = [{ kind: 'guest', refId: 'h1', displayName: 'Human' }];
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID, seats });
+        const seats = [
+            ...HOST_TABLE.seats,
+            {
+                kind: 'guest',
+                refId: 'h1',
+                displayName: 'Human',
+                ready: true
+            }
+        ];
+
+        mockFindTableById.mockResolvedValue({
+            ...HOST_TABLE,
+            seats
+        });
+
         service.startGame.mockResolvedValue(game);
+
         const req = makeReq({ body: { tableId: TABLE_ID } });
         const res = makeRes();
 
@@ -167,7 +232,7 @@ describe('CreateBotGameController', () => {
     });
 
     test('the room announcement does not include the starting players private cards or options', async () => {
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID, seats: [] });
+        mockFindTableById.mockResolvedValue(HOST_TABLE);
         service.startGame.mockResolvedValue(game);
         const req = makeReq({ body: { tableId: TABLE_ID } });
 
@@ -182,18 +247,31 @@ describe('CreateBotGameController', () => {
         expect(payload.game.legal).toBeUndefined();
     });
 
-    test('returns an empty seat list if the table has none', async () => {
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID });
-        service.startGame.mockResolvedValue(game);
+    test('403 when there are not enough participants', async () => {
+        mockFindTableById.mockResolvedValue({
+            ...HOST_TABLE,
+            seats: [...HOST_TABLE.seats],
+            bots: 0
+        });
+
         const res = makeRes();
 
-        await CreateBotGameController(makeReq({ body: { tableId: TABLE_ID } }), res);
+        await CreateBotGameController(
+            makeReq({ body: { tableId: TABLE_ID } }),
+            res
+        );
 
-        expect(res.json).toHaveBeenCalledWith({ game: VIEW, seats: [] });
+        expect(res.status).toHaveBeenCalledWith(403);
+
+        expect(res.json).toHaveBeenCalledWith({
+            message: 'At least two players are required to start'
+        });
+
+        expect(service.startGame).not.toHaveBeenCalled();
     });
 
     test('409 when a game is already running', async () => {
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID });
+        mockFindTableById.mockResolvedValue( HOST_TABLE );
         service.startGame.mockRejectedValue(new GameConflictError('A game is already in progress at this table'));
         const res = makeRes();
 
@@ -205,7 +283,7 @@ describe('CreateBotGameController', () => {
     });
 
     test('404 when the service cannot find the table', async () => {
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID });
+        mockFindTableById.mockResolvedValue( HOST_TABLE );
         service.startGame.mockRejectedValue(new GameNotFoundError('Table not found'));
         const res = makeRes();
 
@@ -215,7 +293,7 @@ describe('CreateBotGameController', () => {
     });
 
     test('400 with the rule message (for example not enough chips)', async () => {
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID });
+        mockFindTableById.mockResolvedValue( HOST_TABLE );
         service.startGame.mockRejectedValue(new GameRuleError('Human does not have enough chips'));
         const res = makeRes();
 
@@ -227,7 +305,7 @@ describe('CreateBotGameController', () => {
 
     test('500 for anything unexpected, without leaking the error', async () => {
         const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
-        mockFindTableById.mockResolvedValue({ _id: TABLE_ID });
+        mockFindTableById.mockResolvedValue( HOST_TABLE);
         service.startGame.mockRejectedValue(new Error('db exploded'));
         const res = makeRes();
 

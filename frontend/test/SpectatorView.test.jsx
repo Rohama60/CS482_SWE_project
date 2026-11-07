@@ -32,9 +32,15 @@ describe('Table screen while spectating (P3)', () => {
 
   test('a spectator cannot start the game', async () => {
     await renderTable({ spectating: true })
-    expect(screen.getByRole('button', { name: 'Start Game' })).toBeDisabled()
-  })
 
+    expect(
+      screen.queryByRole('button', { name: /start game|^start$/i })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('button', { name: 'Ready' })
+    ).not.toBeInTheDocument()
+  })
   test('when the game starts, a spectator sees face-down cards and never gets a hand', async () => {
     await renderTable({ spectating: true })
     serverSends('game-started', { gameId: GAME._id, game: GAME })
@@ -97,11 +103,20 @@ describe('Table screen while spectating (P3)', () => {
 })
 
 describe('Table screen while seated', () => {
-  test('shows your hand panel and no Take a Seat button', async () => {
+  test('a seated player sees the waiting panel and no Take a Seat button', async () => {
     await renderTable()
-    expect(screen.queryByText('Spectating')).not.toBeInTheDocument()
-    expect(screen.getAllByText('Your hand').length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Take a Seat' })).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByText('Spectating')
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.getByText('Waiting for cards...')
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('button', { name: 'Take a Seat' })
+    ).not.toBeInTheDocument()
   })
 
   test('you get your own cards once the game starts', async () => {

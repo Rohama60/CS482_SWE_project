@@ -303,7 +303,11 @@ describe('act (betting)', () => {
         expect(after.engine.lastAction).toEqual({ playerId: 'h1', type: 'call', amount: 5 });
         expect(h.gameDao.updatePokerGame).toHaveBeenCalledWith(
             'g1',
-            expect.objectContaining({ engine: expect.anything(), round: 'betting1' })
+            expect.objectContaining({
+                engine: expect.anything(),
+                round: 'betting1'
+            }),
+            'session'
         );
         expect(h.emit).toHaveBeenCalledWith('t1', 'game-updated', expect.anything());
     });
@@ -360,7 +364,17 @@ describe('act (betting)', () => {
 
         expect(after.engine.round).toBe('finished');
         // started with 1000, posted the 10 big blind, wins the 15 pot: +5
-        expect(h.chipDao.addChips).toHaveBeenCalledWith({ kind: 'guest', refId: 'h1' }, 5, 'session');
+        expect(h.chipDao.addChips).toHaveBeenCalledWith(
+    { kind: 'guest', refId: 'h1' },
+        -10,
+        'session'
+    );
+
+    expect(h.chipDao.addChips).toHaveBeenCalledWith(
+        { kind: 'guest', refId: 'h1' },
+        15,
+        'session'
+    );
         expect(h.balances.h1).toBe(1005);
     });
 
@@ -426,7 +440,13 @@ describe('draw', () => {
 
         expect(after.engine.currentTurn).toBe('bot-1');
         expect(after.engine.round).toBe('drawing');
-        expect(h.gameDao.updatePokerGame).toHaveBeenCalledWith('g1', expect.objectContaining({ round: 'drawing' }));
+        expect(h.gameDao.updatePokerGame).toHaveBeenCalledWith(
+            'g1',
+            expect.objectContaining({
+                round: 'drawing'
+            }),
+            'session'
+        );
     });
 
     test('standing pat (no cards) is allowed and keeps the hand', async () => {

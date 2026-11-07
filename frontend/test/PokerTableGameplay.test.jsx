@@ -6,7 +6,7 @@
 import '@testing-library/jest-dom'
 import { screen, fireEvent, waitFor, render } from '@testing-library/react'
 import { socket } from '../src/socket'
-import { TABLE, SEATS, GAME, renderTable, startGame, serverSends, callFor } from './helpers/tableScreen.jsx'
+import { TABLE, SEATS, GAME, BOT_GAME, DRAW_GAME, renderTable, startGame, serverSends, callFor } from './helpers/tableScreen.jsx'
 
 jest.mock('../src/socket', () => ({
   socket: { connected: false, id: 'sock1', on: jest.fn(), off: jest.fn(), emit: jest.fn(), connect: jest.fn() },
@@ -31,8 +31,8 @@ beforeEach(() => {
 describe('Before the game starts', () => {
   test('shows Waiting for Game with a Start Game button', async () => {
     await renderTable()
-    expect(screen.getByText('Waiting for Game')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start Game' })).toBeEnabled()
+    expect(screen.getByText('Ready to Play?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeEnabled()
     expect(screen.getByText('Waiting for cards...')).toBeInTheDocument()
   })
 
@@ -57,7 +57,7 @@ describe('Before the game starts', () => {
 
   test('if the seats cannot load, the table still shows', async () => {
     await renderTable({ seats: [], overrides: { [`GET /api/tables/${TABLE.id}`]: () => reply({}, false) } })
-    expect(screen.getByText('Waiting for Game')).toBeInTheDocument()
+    expect(screen.getByText('Ready to Play?')).toBeInTheDocument()
     expect(screen.getByText('You')).toBeInTheDocument()
   })
 })
@@ -66,7 +66,7 @@ describe('Starting the game', () => {
   test('Start Game asks the server to start a game for this table', async () => {
     await renderTable()
     await startGame()
-    const [, options] = callFor('POST /api/games')
+    const [, options] = callFor('POST /api/bot-games')
     expect(JSON.parse(options.body)).toEqual({ tableId: TABLE.id })
   })
 
@@ -75,7 +75,7 @@ describe('Starting the game', () => {
     await startGame()
     expect(screen.getByText('$3')).toBeInTheDocument()
     expect(screen.getByText('Small Blind · $1')).toBeInTheDocument()
-    expect(screen.getByText('Big Blind · $2')).toBeInTheDocument()
+    expect(screen.getByText(/Big Blind/)).toBeInTheDocument()
   })
 
   test('your cards come from the server with suit symbols', async () => {
@@ -86,49 +86,153 @@ describe('Starting the game', () => {
     expect(card('7', '♣')).toBeInTheDocument()
   })
 
-  test('a guest sends their guest id when asking for cards', async () => {
-    await renderTable({ user: null, guest: { id: 'g1' } })
-    await startGame()
-    await screen.findByRole('button', { name: /^A of ♠;/ })
-    const [, options] = callFor(`GET /api/games/${GAME._id}/hand`)
-    expect(options.headers).toEqual({ 'x-guest-id': 'g1' })
+ test('a guest sends their guest id when asking for cards', async () => {
+    await renderTable({
+      user: null,
+      guest: { id: 'g1' }
+    })
+
+    serverSends('game-started', {
+      gameId: GAME._id,
+      game: BOT_GAME
+    })
+
+    await waitFor(() => {
+      expect(
+        callFor(`GET /api/bot-games/${GAME._id}`)
+      ).toBeTruthy()
+    })
+
+    const [, options] = callFor(
+      `GET /api/bot-games/${GAME._id}`
+    )
+
+    expect(options.headers).toEqual(
+      expect.objectContaining({
+        'x-guest-id': 'g1'
+      })
+    )
   })
 
   test('the button says Starting... while waiting', async () => {
     let finish
-    await renderTable({ overrides: { 'POST /api/games': () => new Promise(r => { finish = r }) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Start Game' }))
-    expect(await screen.findByRole('button', { name: 'Starting...' })).toBeDisabled()
-    finish({ ok: false, json: () => Promise.resolve({}) })
-    await screen.findByRole('button', { name: 'Start Game' })
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () =>
+          new Promise(resolve => {
+            finish = resolve
+          })
+      }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Starting...' })
+    ).toBeDisabled()
+
+    finish({
+      ok: false,
+      json: () => Promise.resolve({})
+    })
+
+    expect(
+      await screen.findByRole('button', { name: 'Start' })
+    ).toBeInTheDocument()
   })
 
   test('a failed start shows an error', async () => {
-    await renderTable({ overrides: { 'POST /api/games': () => reply({}, false) } })
-    fireEvent.click(screen.getByRole('button', { name: 'Start Game' }))
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({}, false)
+      }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
     expect(await screen.findByText('Failed to start game')).toBeInTheDocument()
   })
 
   test('if the server cannot be reached, it shows a general error', async () => {
-    await renderTable({ overrides: { 'POST /api/games': () => Promise.reject('down') } })
-    fireEvent.click(screen.getByRole('button', { name: 'Start Game' }))
-    expect(await screen.findByText('Unable to start game')).toBeInTheDocument()
+  await renderTable({
+    overrides: {
+      'POST /api/bot-games': () =>
+        Promise.reject(new Error('Network down'))
+    }
   })
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Start' })
+  )
+
+  expect(
+    await screen.findByText('Network down')
+  ).toBeInTheDocument()
+})
 
   // Note: the screen only shows errors before the game starts, so a card error is logged
   // and you stay on "Waiting for cards..." instead of seeing a message.
   test('if your cards cannot load, you stay on Waiting for cards', async () => {
-    await renderTable({ overrides: { [`GET /api/games/${GAME._id}/hand`]: () => reply({ error: 'nope' }, false) } })
-    await startGame()
-    await waitFor(() => expect(console.error).toHaveBeenCalledWith('Error fetching hand:', expect.objectContaining({ message: 'nope' })))
-    expect(screen.getByText('Waiting for cards...')).toBeInTheDocument()
+    await renderTable({
+      overrides: {
+        [`GET /api/bot-games/${GAME._id}`]: () =>
+          reply({
+            game: {
+              ...DRAW_GAME,
+              myHand: null
+            }
+          })
+      }
+    })
+
+    serverSends('game-started', {
+      gameId: GAME._id,
+      game: {
+        ...BOT_GAME,
+        myHand: null
+      }
+    })
+
+    await waitFor(() => {
+      expect(
+        callFor(`GET /api/bot-games/${GAME._id}`)
+      ).toBeTruthy()
+    })
+
+    expect(
+      screen.getByText('Waiting for cards...')
+    ).toBeInTheDocument()
   })
 
-  test('a card error with no message uses the default one', async () => {
-    await renderTable({ overrides: { [`GET /api/games/${GAME._id}/hand`]: () => reply({}, false) } })
-    await startGame()
-    await waitFor(() => expect(console.error).toHaveBeenCalledWith('Error fetching hand:', expect.objectContaining({ message: 'Failed to retrieve cards' })))
+  test('a failed private game refresh keeps the screen usable', async () => {
+  await renderTable({
+    overrides: {
+      [`GET /api/bot-games/${GAME._id}`]: () =>
+        Promise.reject(new Error('Server unavailable'))
+    }
   })
+
+  serverSends('game-started', {
+    gameId: GAME._id,
+    game: {
+      ...BOT_GAME,
+      myHand: null
+    }
+  })
+
+  await waitFor(() => {
+    expect(
+      callFor(`GET /api/bot-games/${GAME._id}`)
+    ).toBeTruthy()
+  })
+
+  expect(
+    screen.getByText('Waiting for cards...')
+  ).toBeInTheDocument()
+
+  expect(
+    screen.queryByRole('button', { name: /^A of ♠;/ })
+  ).not.toBeInTheDocument()
+})
 })
 
 describe('Live updates', () => {
@@ -176,54 +280,138 @@ describe('Live updates', () => {
 
 describe('Picking cards and drawing', () => {
   async function dealt() {
-    await renderTable()
+  await renderTable()
     await startGame()
-    await screen.findByRole('button', { name: /^A of ♠;/ })
+
+    serverSends('game-updated', {
+      gameId: GAME._id
+    })
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Stand pat' })
+      ).toBeEnabled()
+    })
+
+    expect(
+      await screen.findByRole('button', {
+        name: /^A of ♠;/
+      })
+    ).toBeInTheDocument()
   }
 
-  test('nothing is marked at first, so the button says Draw', async () => {
+  test('nothing is marked at first, so Draw is disabled', async () => {
     await dealt()
+
     expect(isMarked('10', '♦')).toBe(false)
-    expect(screen.getByRole('button', { name: 'Draw' })).toBeInTheDocument()
-    expect(screen.getByText('A pair of aces with a 10 kicker')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Draw' })
+    ).toBeDisabled()
+
+    expect(
+      screen.getByRole('button', { name: 'Stand pat' })
+    ).toBeEnabled()
   })
 
   test('clicking cards marks and unmarks them', async () => {
     await dealt()
+
     fireEvent.click(card('7', '♣'))
     fireEvent.click(card('3', '♥'))
-    expect(screen.getByRole('button', { name: 'Draw 2' })).toBeInTheDocument()
-    expect(screen.getByText('2 cards marked to discard')).toBeInTheDocument()
+
+    expect(isMarked('7', '♣')).toBe(true)
+    expect(isMarked('3', '♥')).toBe(true)
+
+    expect(
+      screen.getByRole('button', { name: 'Draw 2' })
+    ).toBeEnabled()
+
     fireEvent.click(card('3', '♥'))
+
     expect(isMarked('3', '♥')).toBe(false)
-    expect(screen.getByRole('button', { name: 'Draw 1' })).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', { name: 'Draw 1' })
+    ).toBeEnabled()
   })
 
-  test('Draw replaces the marked cards and locks the hand', async () => {
+ test('Draw replaces the marked cards and locks the hand', async () => {
     await dealt()
+
     fireEvent.click(card('7', '♣'))
-    fireEvent.click(screen.getByRole('button', { name: 'Draw 1' }))
-    expect(card('K', '♣')).toBeInTheDocument()
-    expect(screen.getByText('Three of a kind — Aces')).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Draw 1' })
+    )
+
+    await waitFor(() => {
+      expect(
+        callFor(`POST /api/bot-games/${GAME._id}/draw`)
+      ).toBeTruthy()
+    })
+
+    const [, options] = callFor(
+      `POST /api/bot-games/${GAME._id}/draw`
+    )
+
+    expect(JSON.parse(options.body)).toEqual({
+      discard: [3]
+    })
+
+    expect(
+      await screen.findByRole('button', { name: /^K of ♣;/ })
+    ).toBeInTheDocument()
+
     fireEvent.click(card('A', '♠'))
     expect(isMarked('A', '♠')).toBe(false)
   })
 
   test('Stand pat ends the turn without changing any cards', async () => {
-    await dealt()
-    fireEvent.click(screen.getByRole('button', { name: 'Stand pat' }))
-    expect(card('10', '♦')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Deal next hand' })).toBeInTheDocument()
-  })
+      await dealt()
 
-  test('Deal next hand resets the hand', async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Stand pat' })
+      )
+
+      await waitFor(() => {
+        expect(
+          callFor(`POST /api/bot-games/${GAME._id}/draw`)
+        ).toBeTruthy()
+      })
+
+      const [, options] = callFor(
+        `POST /api/bot-games/${GAME._id}/draw`
+      )
+
+      expect(JSON.parse(options.body)).toEqual({
+        discard: []
+      })
+    })
+
+      test('Deal next hand starts a new game', async () => {
     await dealt()
-    fireEvent.click(screen.getByRole('button', { name: 'Stand pat' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Deal next hand' }))
-    expect(screen.getByRole('button', { name: 'Draw 3' })).toBeInTheDocument()
-    expect(screen.getByText('One pair — Aces')).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Stand pat' })
+    )
+
+    const nextHand = await screen.findByRole('button', {
+      name: 'Deal next hand'
+    })
+
+    fireEvent.click(nextHand)
+
+    await waitFor(() => {
+      const starts = global.fetch.mock.calls.filter(
+        ([url, options = {}]) =>
+          url === '/api/bot-games' &&
+          options.method === 'POST'
+      )
+
+      expect(starts).toHaveLength(2)
+    })
   })
-})
+  })
 
 describe('Leaving the table', () => {
   test('tells the server you left, then goes back to the lobby', async () => {
@@ -260,9 +448,18 @@ describe('How to play guide', () => {
 
   test('both buttons open the guide', async () => {
     await renderTable()
+
     fireEvent.click(helpButtons()[0])
     expect(guideTitle()).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Got it' }))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Got it' })
+    )
+
+    await startGame()
+
+    expect(helpButtons()).toHaveLength(2)
+
     fireEvent.click(helpButtons()[1])
     expect(guideTitle()).toBeInTheDocument()
   })

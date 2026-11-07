@@ -438,17 +438,31 @@ describe('Lobby: create a table', () => {
   const submitCreate = user =>
     user.click(screen.getByRole('button', { name: /create & take a seat/i }))
 
-  test('the Create Table button opens the creation modal', async () => {
-    const { user } = await setup()
+    test('the Create Table button opens the creation modal', async () => {
+      const { user } = await setup({ session: SESSION })
 
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    await openCreateModal(user)
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      await openCreateModal(user)
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-  })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+    test('guests cannot create tables', async () => {
+      const { user } = await setup({ session: null })
+
+      const createButton = screen.getByRole('button', {
+        name: 'Create Table'
+      })
+
+      expect(createButton).toBeInTheDocument()
+      expect(createButton).toBeDisabled()
+
+      await user.click(createButton)
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
 
   test('closing the modal removes it without creating anything', async () => {
-    const { user } = await setup()
+    const { user } = await setup({ session: SESSION })
     await openCreateModal(user)
 
     await user.click(screen.getByRole('button', { name: /close table setup/i }))
@@ -459,6 +473,7 @@ describe('Lobby: create a table', () => {
 
   test('posts the form to the API with credentials', async () => {
     const { user } = await setup({
+      session: SESSION,
       overrides: { [`POST ${CREATE_URL}`]: () => jsonResponse({ table: NEW_TABLE }) },
     })
     await openCreateModal(user)
@@ -476,13 +491,18 @@ describe('Lobby: create a table', () => {
 
   test('a public table is added to the list, the modal closes and onJoin is called', async () => {
     const { user, onJoin } = await setup({
+      session: SESSION,
       overrides: { [`POST ${CREATE_URL}`]: () => jsonResponse({ table: NEW_TABLE }) },
     })
     await openCreateModal(user)
 
     await submitCreate(user)
 
-    expect(await screen.findByRole('heading', { name: 'Midnight Draw' })).toBeInTheDocument()
+  expect(
+      await screen.findAllByRole('heading', {
+        name: 'Midnight Draw'
+      })
+    ).toHaveLength(2)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(onJoin).toHaveBeenCalledWith(NEW_TABLE)
   })
@@ -508,6 +528,7 @@ describe('Lobby: create a table', () => {
 
   test('shows the server error and keeps the modal open', async () => {
     const { user, onJoin } = await setup({
+      session: SESSION,
       overrides: {
         [`POST ${CREATE_URL}`]: () => jsonResponse({ error: 'Unauthorized' }, { ok: false, status: 401 }),
       },
@@ -523,6 +544,7 @@ describe('Lobby: create a table', () => {
 
   test('falls back to a generic message when the error has no text', async () => {
     const { user } = await setup({
+      session: SESSION,
       overrides: { [`POST ${CREATE_URL}`]: () => jsonResponse({}, { ok: false, status: 500 }) },
     })
     await openCreateModal(user)
@@ -533,8 +555,12 @@ describe('Lobby: create a table', () => {
   })
 
   test('alerts when the server cannot be reached', async () => {
-    const { user, onJoin } = await setup({
-      overrides: { [`POST ${CREATE_URL}`]: () => Promise.reject(new Error('network')) },
+      const { user, onJoin } = await setup({
+      session: SESSION,
+      overrides: {
+        [`POST ${CREATE_URL}`]: () =>
+          Promise.reject(new Error('network'))
+      },
     })
     await openCreateModal(user)
 
