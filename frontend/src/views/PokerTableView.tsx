@@ -242,22 +242,26 @@ const otherPlayers = players.filter(player =>
     player.refId !== currentPlayer?.refId
 );
 
+
 const host =
-  isHost ??
-  Boolean((table as PokerTableData & { isHost?: boolean }).isHost);
+  !spectating &&
+  currentPlayer?.kind === 'user' &&
+  table.host != null &&
+  String(currentPlayer.refId) === String(table.host);
+
 
 const myReady = Boolean(currentPlayer?.ready);
 
-const otherSeatedPlayers = players.filter(
-  player =>
-    player.refId !== currentPlayer?.refId &&
-    !player.isHost
-);
+const tableHostId =
+  (table as PokerTableData & { host?: string | null }).host;
 
+const otherSeatedPlayers = players.filter(
+  player => String(player.refId) !== String(table.host)
+);
 const everyoneReady =
   host &&
   !!currentPlayer &&
-  otherSeatedPlayers.length > 0 &&
+  players.length + (table.bots ?? 0) >= 2 &&
   otherSeatedPlayers.every(player => player.ready === true);
 
 function handleReady() {

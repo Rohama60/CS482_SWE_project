@@ -12,7 +12,6 @@ export type TableConfig = {
      botCount: number
 
   }
-
 export type PokerTableData = {
   id: string | number
   name: string
@@ -26,7 +25,18 @@ export type PokerTableData = {
   bots?: number
   isPrivate?: boolean
   inviteCode?: string | null
-  spectators?: { kind: string; refId: string; displayName: string }[]
+  host?: string | null
+  seats?: {
+    kind: 'user' | 'guest'
+    refId: string
+    displayName: string
+    ready?: boolean
+  }[]
+  spectators?: {
+    kind: string
+    refId: string
+    displayName: string
+  }[]
 }
 
 function SeatDots({ filled, max }: { filled: number; max: number }) {

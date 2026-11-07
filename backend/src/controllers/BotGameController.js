@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { auth } from '../Auth.js';
+import Account from '../models/AccountModel.js';
 import { findTableById, startTableGame } from '../dao/TableDAO.js';
 import { createPokerGame, findPokerGameById, updatePokerGame, findLatestGameByTableId, runInTransaction, addChips, getChipBalance, finishTableGame } from '../dao/BotGameDAO.js';
 import { createGameService, GameConflictError, GameNotFoundError } from '../services/GameService.js';
@@ -37,7 +39,50 @@ export async function CreateBotGameController(req, res) {
         if (!mongoose.isValidObjectId(tableId)) return res.status(400).json({ message: 'Invalid table ID' });
         const table = await findTableById(tableId);
         if (!table) return res.status(404).json({ message: 'Table not found' });
+        const session = await auth.api.getSession({
+            headers: new Headers({
+                cookie: req.headers.cookie || ''
+            })
+        });
 
+        const account = session?.user?.id
+            ? await Account.findOne({ userId: session.user.id })
+            : null;
+
+        if (!account || String(table.host) !== String(account._id)) {
+            return res.status(403).json({
+                error: 'Only the host can start the game'
+            });
+        }
+        // Only human players need to press Ready.
+        // Bots are not included in table.seats.
+        const otherPlayers = table.seats.filter(
+            seat => !(
+                seat.kind === 'user' &&
+                String(seat.refId) === String(table.host)
+            )
+        );
+
+        // Every other seated player must be ready.
+        // If there are no other humans, bots can play immediately.
+        const everyoneReady = otherPlayers.every(
+            seat => seat.ready === true
+        );
+
+        // At least two participants are required, counting bots.
+        const totalParticipants = table.seats.length + (table.bots ?? 0);
+
+        if (totalParticipants < 2) {
+            return res.status(403).json({
+                message: 'At least two players are required to start'
+            });
+        }
+
+        if (!everyoneReady) {
+            return res.status(403).json({
+                message: 'Waiting for other players to be ready'
+            });
+        }
         const game = await service.startGame(tableId);
         const player = await getJoiningPlayer(req);
         const view = await service.viewFor(game, player);

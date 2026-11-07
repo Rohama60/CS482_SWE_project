@@ -2,6 +2,9 @@ import '../src/loadEnv.js';
 import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
+import Table from '../src/models/TableModel.js';
+import Account from '../src/models/AccountModel.js';
+import Guest from '../src/models/GuestModel.js';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { LoginController } from '../src/controllers/LoginController.js';
@@ -84,6 +87,57 @@ app.post('/api/bot-games/:gameId/action', BotGameActionController);
 app.post('/api/bot-games/:gameId/draw', BotGameDrawController);
 app.get('/api/bot-games/:gameId', GetBotGameController);
 app.get('/api/tables/:id/bot-game', GetTableBotGameController);
+io.use(async (socket, next) => {
+    try {
+        const cookie = socket.handshake.headers.cookie || '';
+
+        const session = await auth.api.getSession({
+            headers: new Headers({ cookie })
+        });
+
+        if (session?.user?.id) {
+            const account = await Account.findOne({
+                userId: session.user.id
+            });
+
+            if (!account) {
+                return next(new Error('Account not found'));
+            }
+
+            socket.data.playerIdentity = {
+                kind: 'user',
+                refId: String(account._id)
+            };
+
+            return next();
+        }
+
+        // Guest authentication
+        const guestId = socket.handshake.auth?.guestId;
+
+        if (typeof guestId !== 'string' ||
+            !mongoose.isValidObjectId(guestId)) {
+            return next(new Error('Authentication required'));
+        }
+
+        const guest = await Guest.findById(guestId);
+
+        if (!guest) {
+            return next(new Error('Guest not found'));
+        }
+
+        socket.data.playerIdentity = {
+            kind: 'guest',
+            refId: String(guest._id)
+        };
+
+        next();
+
+    } catch (error) {
+        console.error('Socket authentication failed:', error);
+        next(new Error('Authentication failed'));
+    }
+});
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -94,6 +148,61 @@ io.on('connection', (socket) => {
     socket.on('leave-table-room', (tableId) => {
         socket.leave(`table-${tableId}`);
         console.log(`Socket ${socket.id} left room table-${tableId}`);
+    });
+    socket.on('table:set-ready', async ({ tableId, ready }, callback) => {
+        try {
+            if (!mongoose.isValidObjectId(tableId) || typeof ready !== 'boolean') {
+                return callback?.({
+                    ok: false,
+                    error: 'Invalid request'
+                });
+            }
+
+            const identity = socket.data.playerIdentity;
+
+            if (!identity?.kind || !identity?.refId) {
+                return callback?.({
+                    ok: false,
+                    error: 'Player authentication required'
+                });
+            }
+
+            const table = await Table.findById(tableId);
+
+            if (!table) {
+                return callback?.({
+                    ok: false,
+                    error: 'Table not found'
+                });
+            }
+
+            const seat = table.seats.find(player =>
+                player.kind === identity.kind &&
+                String(player.refId) === String(identity.refId)
+            );
+
+            if (!seat) {
+                return callback?.({
+                    ok: false,
+                    error: 'You are not seated at this table'
+                });
+            }
+
+            seat.ready = ready;
+            await table.save();
+
+            io.to(`table-${tableId}`).emit('table-updated', table);
+
+            callback?.({ ok: true });
+
+        } catch (error) {
+            console.error('Error updating ready status:', error);
+
+            callback?.({
+                ok: false,
+                error: 'Unable to update ready status'
+            });
+        }
     });
     socket.on('disconnect', () => {
         console.log('A user disconnected:', socket.id);

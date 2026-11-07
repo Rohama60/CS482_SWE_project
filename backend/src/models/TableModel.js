@@ -5,6 +5,7 @@ const seatSchema = new mongoose.Schema({
     kind: { type: String, enum: ['user', 'guest'], required: true },
     refId: { type: String, required: true },
     displayName: { type: String, default: 'Player' },
+    ready: { type: Boolean, default: false}
 }, { _id: false });
 
 const tableSchema = new mongoose.Schema({
