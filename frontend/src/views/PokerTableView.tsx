@@ -170,16 +170,21 @@ function CardBacks({ count = 5 }: { count?: number }) {
   )
 }
 type PokerTableProps = {
-  table: PokerTableData
-  onLeave: () => void
-  spectating?: boolean      // P3
-  onTakeSeat?: () => void   // P3
-}
+  table: PokerTableData;
+  onLeave: () => void;
+  spectating?: boolean;
+  onTakeSeat?: () => void;
+  isHost?: boolean;
+};
+
 type TableSeat = {
   kind: 'user' | 'guest';
   refId: string;
   displayName: string;
-}
+  ready?: boolean;
+  isHost?: boolean;
+};
+
 type GameState = {
     _id: string;
     smallBlind: number;
@@ -207,7 +212,7 @@ const SERVER_ROUNDS = ['betting1', 'drawing', 'betting2', 'finished'];
 const SUIT_SYMBOLS: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
 const ROUND_LABELS: Record<string, string> = { betting1: 'First betting round', drawing: 'Draw', betting2: 'Final betting round', finished: 'Hand over' };
 
-export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: PokerTableProps) {
+export function PokerTable({table,onLeave,spectating = false,onTakeSeat,isHost}: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([])
@@ -224,6 +229,8 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
   const [players, setPlayers] = useState<TableSeat[]>([])
   const [raiseBy, setRaiseBy] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [readyPending, setReadyPending] = useState(false);
+  const [readyError, setReadyError] = useState('');
   const { data: session } = authClient.useSession();
   const currentPlayer = players.find(player =>
     player.kind === 'user'
@@ -234,6 +241,50 @@ export function PokerTable({ table, onLeave, spectating = false, onTakeSeat }: P
 const otherPlayers = players.filter(player =>
     player.refId !== currentPlayer?.refId
 );
+
+const host =
+  isHost ??
+  Boolean((table as PokerTableData & { isHost?: boolean }).isHost);
+
+const myReady = Boolean(currentPlayer?.ready);
+
+const otherSeatedPlayers = players.filter(
+  player =>
+    player.refId !== currentPlayer?.refId &&
+    !player.isHost
+);
+
+const everyoneReady =
+  host &&
+  !!currentPlayer &&
+  otherSeatedPlayers.length > 0 &&
+  otherSeatedPlayers.every(player => player.ready === true);
+
+function handleReady() {
+  if (spectating || host || !currentPlayer || myReady || readyPending) {
+    return;
+  }
+
+  setReadyError('');
+  setReadyPending(true);
+
+  socket.timeout(5000).emit(
+    'table:set-ready',
+    {
+      tableId: table.id,
+      ready: true
+    },
+    (err: Error | null, result?: { ok: boolean; error?: string }) => {
+      setReadyPending(false);
+
+      if (err || !result?.ok) {
+        setReadyError(
+          result?.error ?? 'Could not mark you ready. Please try again.'
+        );
+      }
+    }
+  );
+}
 // Current player's betting information
 const myPlayerId = currentPlayer?.refId;
 
@@ -394,7 +445,14 @@ async function fetchMyHand(id: string) {
     }
 }
   async function handleStartGame() {
-      setIsStarting(true)
+    if (
+      isStarting ||
+      (!gameStarted && (!host || !everyoneReady || spectating))
+    ) {
+      return;
+    }
+
+    setIsStarting(true);
 
       try {
           const response = await fetch('/api/bot-games', {
@@ -648,51 +706,104 @@ useEffect(() => {
               
               
               
-              {!gameStarted ? (
-                <div className="relative z-30 flex flex-col items-center gap-4">
-                  <h2 className="text-2xl font-semibold" style={{ color: '#e8e4dc' }}
-                  >
-                    Waiting for Game 
-                  </h2>
-                  <button
-                    onClick={handleStartGame}
-                    disabled={isStarting||spectating}
-                    className="rounded-xl px-8 py-4 text-lg font-semibold transition-all hover:brightness-125 disabled:opacity-50"
-                    style={{
-                      background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
-                      color: '#fff',
-                    }}
-                    >
-                      {isStarting ? 'Starting...' : 'Start Game'}
-                    </button>
-                    {error && (
-                      <p className="test-sm text-red-400">{error}</p>
-                    )}
-                    </div>
-                    ) : (
-                      <>
-                        <p className="test-xs uppercase tracking-[0.3em]"
-                        style={{ color: '#e8e4dc', opacity: 0.5 }}
-                        >
-                          Current pot
-                        </p>
+            {gameStarted && (
+            <>
+              <p
+                className="text-xs uppercase tracking-[0.3em]"
+                style={{ color: '#e8e4dc', opacity: 0.5 }}
+              >
+                Current pot
+              </p>
 
-                        <p
-                        className="mt-1 text-3xl font-semibold"
-                        style={{ color: '#e8e4dc' }}
-                        >
-                          ${game?.potSize ?? 0}
-                          </p>
-                          {serverMode && (
-                            <p className = "mt-1 text-xs" style={{ color: '#e8e4dc', opacity: 0.55 }}>
-                              {ROUND_LABELS[game!.round]}{game!.round === 'finished' && game!.resultText ? ` . ${game!.resultText}` : ''}
-                          </p>
-                          )}
-                          </>       
-                    )}              
+              <p
+                className="mt-1 text-3xl font-semibold"
+                style={{ color: '#e8e4dc' }}
+              >
+                ${game?.potSize ?? 0}
+              </p>
+
+              {serverMode && (
+                <p
+                  className="mt-1 text-xs"
+                  style={{ color: '#e8e4dc', opacity: 0.55 }}
+                >
+                  {ROUND_LABELS[game!.round]}
+                  {game!.round === 'finished' && game!.resultText
+                    ? ` · ${game!.resultText}`
+                    : ''}
+                </p>
+              )}
+            </>
+          )}              
               
             </div>
+            {!gameStarted && !spectating && (
+                <div
+                  className="absolute left-1/2 top-[28%] z-30 w-[min(90%,24rem)] -translate-x-1/2 rounded-2xl border p-5 text-center shadow-2xl"
+                  style={{
+                    background: 'rgba(20,22,27,0.96)',
+                    borderColor: 'rgba(251,191,36,0.7)'
+                  }}
+                >
+                  <p
+                    className="text-[0.65rem] font-bold uppercase tracking-[0.25em]"
+                    style={{ color: '#fbbf24' }}
+                  >
+                    Ready to Play?
+                  </p>
 
+                  <p
+                    className="mt-2 text-xs"
+                    style={{ color: '#e8e4dc', opacity: 0.7 }}
+                  >
+                    {host
+                      ? `${otherSeatedPlayers.filter(p => p.ready).length} / ${otherSeatedPlayers.length} other players ready`
+                      : myReady
+                        ? 'You are ready. The host will start the game.'
+                        : 'Press Ready when you are ready to play.'}
+                  </p>
+
+                  {host ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleStartGame()}
+                      disabled={!everyoneReady || isStarting}
+                      className="mt-4 w-full rounded-xl px-7 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{
+                        background: everyoneReady ? '#15803d' : '#475569'
+                      }}
+                    >
+                      {isStarting
+                        ? 'Starting...'
+                        : everyoneReady
+                          ? 'Start'
+                          : 'Waiting for others...'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleReady}
+                      disabled={myReady || readyPending || !currentPlayer}
+                      className="mt-4 w-full rounded-xl px-7 py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{
+                        background: myReady ? '#475569' : '#15803d'
+                      }}
+                    >
+                      {myReady
+                        ? 'Waiting for Host...'
+                        : readyPending
+                          ? 'Marking ready...'
+                          : 'Ready'}
+                    </button>
+                  )}
+
+                  {(error || readyError) && (
+                    <p className="mt-3 text-xs text-red-400">
+                      {error || readyError}
+                    </p>
+                  )}
+                </div>
+              )}
             {serverMode && game!.round === 'finished' && champions.length > 0 && (
               <div
                 className="absolute left-1/2 top-1/2 z-30 w-[min(90%,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-4 text-center shadow-2xl"
@@ -845,55 +956,55 @@ useEffect(() => {
               )}
               </div>
               <div
-                className="relative z-10 rounded-xl px-6 py-2 shadow-xl"
-                style={{
-                  background: '#17191f',
-                  border: '1px solid #c0392b',
-                  width: '260px'
-                }}
-              >
-                {/* Name and balance in the same row */}
-                <div className="flex items-center justify-between">
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: '#e8e4dc' }}
-                  >
-                    {currentPlayer?.displayName || 'You'}
-                  </span>
+              className="relative z-10 rounded-xl px-6 py-2 shadow-xl"
+              style={{
+                background: '#17191f',
+                border: '1px solid #c0392b',
+                width: '260px'
+              }}
+            >
+              {/* Name and balance in the same row */}
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: '#e8e4dc' }}
+                >
+                  {currentPlayer?.displayName || 'You'}
+                </span>
 
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color: '#e8e4dc' }}
-                  >
-                    {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
-                  </span>
-                </div>
-
-                {/* Blind label below the name */}
-                <div className="text-left">
-                  {game?.smallBlindPlayerId != null &&
-                    serverPlayerId != null &&
-                    String(game.smallBlindPlayerId) === String(serverPlayerId) && (
-                      <span
-                        className="text-[0.65rem] font-bold"
-                        style={{ color: '#fbbf24' }}
-                      >
-                        Small Blind · ${game.smallBlind}
-                      </span>
-                    )}
-
-                  {game?.bigBlindPlayerId != null &&
-                    serverPlayerId != null &&
-                    String(game.bigBlindPlayerId) === String(serverPlayerId) && (
-                      <span
-                        className="text-[0.65rem] font-bold"
-                        style={{ color: '#fbbf24' }}
-                      >
-                        Big Blind · ${game.bigBlind}
-                      </span>
-                    )}
-                </div>
+                <span
+                  className="text-xs font-semibold"
+                  style={{ color: '#e8e4dc' }}
+                >
+                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+                </span>
               </div>
+
+              {/* Blind label below the name */}
+              <div className="text-left">
+                {game?.smallBlindPlayerId != null &&
+                  serverPlayerId != null &&
+                  String(game.smallBlindPlayerId) === String(serverPlayerId) && (
+                    <span
+                      className="text-[0.65rem] font-bold"
+                      style={{ color: '#fbbf24' }}
+                    >
+                      Small Blind · ${game.smallBlind}
+                    </span>
+                  )}
+
+                {game?.bigBlindPlayerId != null &&
+                  serverPlayerId != null &&
+                  String(game.bigBlindPlayerId) === String(serverPlayerId) && (
+                    <span
+                      className="text-[0.65rem] font-bold"
+                      style={{ color: '#fbbf24' }}
+                    >
+                      Big Blind · ${game.bigBlind}
+                    </span>
+                  )}
+              </div>
+            </div>
             </div>
           </div>
 
