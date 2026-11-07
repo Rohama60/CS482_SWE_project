@@ -504,9 +504,9 @@ async function fetchMyHand(id: string) {
   }
 
   function draw() {
-    if (!myTurn || busy) return;
+    if (!myTurn || busy || selected.length === 0) return;
     void sendToGame('draw', { discard: selected });
-  }
+}
 
   function newHand() {
     setHand([])
@@ -1063,8 +1063,16 @@ useEffect(() => {
                   <button disabled={!myTurn || busy} className="flex-1 rounded-xl px-5 py-3 text-sm font-semibold disabled:opacity-40 sm:flex-none" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => { setSelected([]); void sendToGame('draw', { discard: [] }) }}>
                     Stand pat
                   </button>
-                  <button disabled={!myTurn || busy} className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold disabled:opacity-40 sm:flex-none" style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff' }} onClick={draw}>
-                    {selected.length ? `Draw ${selected.length}` : 'Draw'}
+                  <button
+                      disabled={!myTurn || busy || selected.length === 0}
+                      className="flex-1 rounded-xl px-7 py-3 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed sm:flex-none"
+                      style={{
+                          background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                          color: '#fff'
+                      }}
+                      onClick={draw}
+                  >
+                      {selected.length > 0 ? `Draw ${selected.length}` : 'Draw'}
                   </button>
                 </>
               ) : (
