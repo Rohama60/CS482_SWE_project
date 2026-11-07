@@ -82,7 +82,7 @@ export function createGameService(deps) {
                 delta,
                 session
             );
-            if (!updated) throw new GameRuleError('Unable to update player chip balance');
+            if (updated === null) throw new GameRuleError('Unable to update player chip balance');
         }
     }
 

@@ -45,6 +45,7 @@ export function SignUpView({
       console.log("Signup successful! Redirecting to lobby")
       // G2: you're a member now, so forget the guest
       if (guest) clearGuest()
+      window.dispatchEvent(new Event('session-updated'))
       onSuccess()
 
     } catch (err) {

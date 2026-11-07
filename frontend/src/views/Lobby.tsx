@@ -105,6 +105,12 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const [myTables, setMyTables] = useState<PokerTableData[]>([])
   const [editingTable, setEditingTable] = useState<PokerTableData | null>(null)
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
+
+  useEffect(() => {
+    const refreshSession = () => authClient.$store.notify('$sessionSignal')
+    window.addEventListener('session-updated', refreshSession)
+    return () => window.removeEventListener('session-updated', refreshSession)
+  }, [])
  
 
   // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.

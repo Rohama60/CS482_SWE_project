@@ -380,7 +380,7 @@ export function forceFold(state, refId) {
 
 /** What is safe to send to everyone at the table (no deck, no hidden cards). */
 export function toPublicState(state) {
-    const showCards = state.round === 'finished' && state.winners.some(w => w.handName);
+    const showCards = state.round === 'finished' && state.winners.length > 0;
     const revealed = {};
     if (showCards) {
         for (const p of state.participants) if (!p.folded) revealed[p.refId] = state.hands[p.refId];

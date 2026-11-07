@@ -9,8 +9,6 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type CardData = { rank: string; suit: string }
 
-
-
 function BetChips({ amount, position, tone = 'red' }: { amount: string; position: string; tone?: 'red' | 'black' | 'cream' }) {
   const colors = {
     red: { face: '#c0392b', edge: '#f0a097' },
@@ -19,8 +17,8 @@ function BetChips({ amount, position, tone = 'red' }: { amount: string; position
   }[tone]
 
   return (
-    <div className={`absolute z-20 flex items-center gap-1.5 rounded-full px-2 py-1 ${position}`} style={{ background: 'rgba(8,8,10,0.62)', border: '1px solid rgba(232,228,220,0.12)' }}>
-      <div className="relative h-6 w-7">
+  <div className={`z-20 flex items-center gap-1.5 rounded-full px-2 py-1 ${position}`} style={{ background: 'rgba(8,8,10,0.62)', border: '1px solid rgba(232,228,220,0.12)' }}>
+    <div className="relative h-6 w-7">
         {[0, 1, 2].map(i => (
           <span
             key={i}
@@ -33,6 +31,7 @@ function BetChips({ amount, position, tone = 'red' }: { amount: string; position
     </div>
   )
 }
+
 function PlayerSeat({
   name,
   chips,
@@ -42,7 +41,8 @@ function PlayerSeat({
   empty = false,
   showCards = false,
   blindLabel = '',
-  blindAmount = 0
+  blindAmount = 0,
+  betAmount = 0
 }: {
   name: string
   chips?: string
@@ -53,6 +53,8 @@ function PlayerSeat({
   showCards?: boolean
   blindLabel?: string
   blindAmount?: number
+  betAmount?: number
+  
 }) {
   return (
     <div className={`absolute z-20 flex flex-col items-center ${position}`}>
@@ -101,6 +103,16 @@ function PlayerSeat({
           </>
         )}
       </div>
+
+      {!empty && betAmount > 0 && (
+        <div className="relative z-20 mt-3 -translate-y-4">
+          <BetChips
+            amount={`$${betAmount}`}
+            position="relative"
+            tone="red"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -245,10 +257,20 @@ const isMyTurn =
 // Bot game(server-run hand: bots, betting,real draw)
 
 const serverMode = !!game && SERVER_ROUNDS.includes(game.round) && Array.isArray(game.participants);
-const me = serverMode ? game!.participants!.find(p => p.refId === myPlayerId) : undefined;
-const opponents = serverMode ? game!.participants!.filter(p => p.refId !== myPlayerId) : [];
-const myTurn = serverMode && game!.currentTurn === myPlayerId && !spectating;
+const serverPlayerId = !spectating
+  ? (myPlayerId ?? game?.participants?.find(player => !player.isBot)?.refId)
+  : undefined;
+const me = serverMode ? game!.participants!.find(p => String(p.refId) === String(serverPlayerId)) : undefined;
+const opponents = serverMode ? game!.participants!.filter(p => String(p.refId) !== String(serverPlayerId)) : [];
+const myTurn = serverMode && String(game!.currentTurn) === String(serverPlayerId) && !spectating;
 const legal = game?.legal;
+const champions = serverMode
+  ? (game!.winners ?? []).map(winner => ({
+      ...winner,
+      player: game!.participants!.find(player => player.refId === winner.refId),
+      cards: game!.revealedHands?.[winner.refId] ?? [],
+    }))
+  : [];
 
 function guestHeaders(): Record<string, string> {
   const guest = getGuest();
@@ -671,17 +693,79 @@ useEffect(() => {
               
             </div>
 
-            {serverMode && opponents.map((player, index) => (
-              <PlayerSeat
-                key={`${player.refId}`}
-                name={`${player.displayName}${player.folded ? ' · folded' : player.allIn ? ' · all-in' : ''}`}
-                chips={`$${player.chips}`}
-                dealer={player.refId === game!.smallBlindPlayerId}
-                active={game!.currentTurn === player.refId}
-                position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
-                showCards={!player.folded}
-              />
-            ))}
+            {serverMode && game!.round === 'finished' && champions.length > 0 && (
+              <div
+                className="absolute left-1/2 top-1/2 z-30 w-[min(90%,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-4 text-center shadow-2xl"
+                style={{ top: '20%', background: 'rgba(20,22,27,0.94)', borderColor: 'rgba(251,191,36,0.7)' }}
+              >
+                <p className="text-[0.65rem] font-bold uppercase tracking-[0.25em]" style={{ color: '#fbbf24' }}>
+                  {champions.length === 1 ? 'Winner' : 'Champions'}
+                </p>
+                {champions.map(champion => (
+                  <div key={champion.refId} className="mt-2">
+                    <p className="text-lg font-bold" style={{ color: '#e8e4dc' }}>
+                      {champion.player?.displayName ?? 'Winner'}
+                    </p>
+                    <p className="text-sm" style={{ color: '#f0a097' }}>
+                      {champion.handName ?? 'Won uncontested'} · ${champion.amount}
+                    </p>
+                    {champion.cards.length > 0 && (
+                      <div className="mt-3 flex justify-center gap-1.5">
+                        {champion.cards.map((card, index) => (
+                          <span
+                            key={`${card.rank}-${card.suit}-${index}`}
+                            className="rounded-md px-2 py-1 text-xs font-bold"
+                            style={{
+                              background: '#eee9df',
+                              color: card.suit === 'hearts' || card.suit === 'diamonds' ? '#b4232a' : '#15171d',
+                            }}
+                          >
+                            {card.rank}{SUIT_SYMBOLS[card.suit] ?? card.suit}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            
+{serverMode && opponents.map((player, index) => {
+  const isSmallBlind =
+    String(game!.smallBlindPlayerId) === String(player.refId);
+
+  const isBigBlind =
+    String(game!.bigBlindPlayerId) === String(player.refId);
+
+  return (
+    <PlayerSeat
+      key={player.refId}
+      name={`${player.displayName}${player.folded ? ' · folded' : player.allIn ? ' · all-in' : ''}`}
+      chips={`$${player.chips}`}
+      dealer={false}
+      active={String(game!.currentTurn) === String(player.refId)}
+      position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
+      showCards={!player.folded}
+      blindLabel={
+        isSmallBlind
+          ? 'Small Blind (SB)'
+          : isBigBlind
+            ? 'Big Blind (BB)'
+            : ''
+      }
+      blindAmount={
+        isSmallBlind
+          ? game!.smallBlind
+          : isBigBlind
+            ? game!.bigBlind
+            : 0
+      }
+      betAmount={game!.playerBets?.[String(player.refId)] ?? player.bet ?? 0}
+    />
+  );
+})}
+
 
             {!serverMode && otherPlayers.map((player, index) => {
     const isSmallBlind =
@@ -722,24 +806,24 @@ useEffect(() => {
             />
         );
     })}
-            {gameStarted && game && (
-                <>
-                    <BetChips
-                        amount={`Small Blind · $${game.smallBlind}`}
-                        position="left-[18%] top-[39%]"
-                        tone="cream"
-                    />
-
-                    <BetChips
-                        amount={`Big Blind · $${game.bigBlind}`}
-                        position="right-[18%] top-[39%]"
-                        tone="black"
-                    />
-                </>
-            )}           
-
-
-            <div className="absolute inset-x-0 bottom-3 z-30 flex flex-col items-center">
+    {serverMode && me &&
+  (game!.playerBets?.[String(me.refId)] ?? me.bet ?? 0) > 0 && (
+    <div
+      className="absolute left-1/2 z-30"
+      style={{
+        bottom: '35%',
+        transform: 'translateX(-50%)'
+      }}
+    >
+      <BetChips
+        amount={`$${game!.playerBets?.[String(me.refId)] ?? me.bet ?? 0}`}
+        position="relative"
+        tone="cream"
+      />
+    </div>
+)}
+    <div className="absolute inset-x-0 bottom-3 z-30 flex flex-col items-center">
+  
               <div
                 className="absolute -bottom-8 h-36 w-72 rounded-t-[4rem] border-2"
                 style={{
@@ -760,33 +844,55 @@ useEffect(() => {
                   Waiting for cards...</p>
               )}
               </div>
-              <div className="relative z-10 flex items-center gap-2 rounded-xl px-4 py-2 shadow-xl" style={{ background: '#17191f', border: '1px solid #c0392b' }}>
-              <div className="flex flex-col items-center">
-              <span
-                  className="text-xs font-semibold"
-                  style={{ color: '#e8e4dc' }}
+              <div
+                className="relative z-10 rounded-xl px-6 py-2 shadow-xl"
+                style={{
+                  background: '#17191f',
+                  border: '1px solid #c0392b',
+                  width: '260px'
+                }}
               >
-                  {currentPlayer?.displayName || 'You'}
-              </span>
-
-              {game?.smallBlindPlayerId === String(currentPlayer?.refId) && (
-                  <span className="text-[0.65rem] font-bold" style={{ color: '#fbbf24' }}>
-                      Small Blind · ${game.smallBlind}
+                {/* Name and balance in the same row */}
+                <div className="flex items-center justify-between">
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: '#e8e4dc' }}
+                  >
+                    {currentPlayer?.displayName || 'You'}
                   </span>
-              )}
 
-              {game?.bigBlindPlayerId === String(currentPlayer?.refId) && (
-                  <span className="text-[0.65rem] font-bold" style={{ color: '#fbbf24' }}>
-                      Big Blind · ${game.bigBlind}
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: '#e8e4dc' }}
+                  >
+                    {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
                   </span>
-              )}
-          </div>
+                </div>
 
+                {/* Blind label below the name */}
+                <div className="text-left">
+                  {game?.smallBlindPlayerId != null &&
+                    serverPlayerId != null &&
+                    String(game.smallBlindPlayerId) === String(serverPlayerId) && (
+                      <span
+                        className="text-[0.65rem] font-bold"
+                        style={{ color: '#fbbf24' }}
+                      >
+                        Small Blind · ${game.smallBlind}
+                      </span>
+                    )}
 
-                <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>·</span>
-                <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
-                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
-              </p>
+                  {game?.bigBlindPlayerId != null &&
+                    serverPlayerId != null &&
+                    String(game.bigBlindPlayerId) === String(serverPlayerId) && (
+                      <span
+                        className="text-[0.65rem] font-bold"
+                        style={{ color: '#fbbf24' }}
+                      >
+                        Big Blind · ${game.bigBlind}
+                      </span>
+                    )}
+                </div>
               </div>
             </div>
           </div>
