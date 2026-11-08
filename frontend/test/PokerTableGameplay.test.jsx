@@ -278,6 +278,111 @@ describe('Live updates', () => {
   })
 })
 
+describe('Betting actions', () => {
+  const actionUrl = `POST /api/bot-games/${GAME._id}/action`
+
+  const bettingGame = overrides => ({
+    ...BOT_GAME,
+    currentTurn: 'u1',
+    legal: {
+      ...BOT_GAME.legal,
+      canAct: true,
+      canCall: true,
+      canRaise: true,
+      toCall: 1,
+      minRaise: 2,
+      maxRaise: 20,
+      ...overrides
+    }
+  })
+
+  test('Call sends a call action for the player', async () => {
+    await renderTable({
+      overrides: {
+        [actionUrl]: () => reply({ game: bettingGame({ canCall: true }) })
+      }
+    })
+    await startGame()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Call $1' }))
+
+    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
+    const [, options] = callFor(actionUrl)
+    expect(JSON.parse(options.body)).toEqual({ type: 'call' })
+  })
+
+  test('Check sends a check action when there is nothing to call', async () => {
+    const checkGame = bettingGame({ canCall: false, toCall: 0 })
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({ game: checkGame, seats: SEATS }),
+        [actionUrl]: () => reply({ game: checkGame })
+      }
+    })
+    await startGame()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }))
+
+    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
+    const [, options] = callFor(actionUrl)
+    expect(JSON.parse(options.body)).toEqual({ type: 'check' })
+  })
+
+  test('Raise sends the selected raise amount', async () => {
+    const raiseGame = bettingGame()
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({ game: raiseGame, seats: SEATS }),
+        [actionUrl]: () => reply({ game: raiseGame })
+      }
+    })
+    await startGame()
+
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Raise amount' }), {
+      target: { value: '6' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Raise' }))
+
+    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
+    const [, options] = callFor(actionUrl)
+    expect(JSON.parse(options.body)).toEqual({ type: 'raise', amount: 6 })
+  })
+
+  test('Fold sends a fold action for the player', async () => {
+    await renderTable({
+      overrides: {
+        [actionUrl]: () => reply({ game: BOT_GAME })
+      }
+    })
+    await startGame()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fold' }))
+
+    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
+    const [, options] = callFor(actionUrl)
+    expect(JSON.parse(options.body)).toEqual({ type: 'fold' })
+  })
+
+  test('betting actions are disabled when it is not the player turn', async () => {
+    const waitingGame = {
+      ...bettingGame({ canCall: true }),
+      currentTurn: 'bot-1'
+    }
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({ game: waitingGame, seats: SEATS })
+      }
+    })
+    await startGame()
+
+    expect(screen.getByRole('button', { name: 'Call $1' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Fold' })).toBeDisabled()
+  })
+})
+
 describe('Picking cards and drawing', () => {
   async function dealt() {
   await renderTable()
