@@ -82,6 +82,23 @@ app.post('/api/admin/reset-password', AdminPasswordResetController);
 app.post('/api/games', CreatePokerGameController);
 app.get('/api/games/:gameId/hand', GetPlayerHandController);
 app.get('/api/players/me/chips', GetPlayerChipsController);
+app.use((req, res, next) => {
+  if (req.path !== '/api/players/me/chips') {
+    return next();
+  }
+
+  const start = performance.now();
+
+  res.on('finish', () => {
+    console.log(
+      'CHIPS FULL HTTP REQUEST:',
+      (performance.now() - start).toFixed(2),
+      'ms'
+    );
+  });
+
+  next();
+});
 app.post('/api/bot-games', CreateBotGameController);
 app.post('/api/bot-games/:gameId/action', BotGameActionController);
 app.post('/api/bot-games/:gameId/draw', BotGameDrawController);

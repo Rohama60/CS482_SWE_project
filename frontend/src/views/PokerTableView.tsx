@@ -366,7 +366,6 @@ async function refreshGame(id: string) {
     const data = await response.json();
     if (response.ok && data.game) {
       applyServerGame(data.game);
-      void fetchMyChips();
     }
   } catch (e) {
     console.error('Could not refresh game', e);
@@ -403,6 +402,7 @@ async function sendToGame(path: 'action' | 'draw', body: object) {
 ];
 
 async function fetchMyChips() {
+    console.trace('fetchMyChips called');
     try {
         const guest = getGuest();
 
@@ -622,10 +622,12 @@ useEffect(() => {
       setGameStarted(true);
 
       if (!spectating) {
-        // Bot games send a full private view; older games load the hand seprately
-          if(data.game.participants) void refreshGame(data.gameId);
-          else void fetchMyHand(data.gameId);
+        if (data.game.participants) {
+          void refreshGame(data.gameId);
+        } else {
+          void fetchMyHand(data.gameId);
           void fetchMyChips();
+        }
       }
   };
 
@@ -1052,7 +1054,7 @@ useEffect(() => {
             <div className="mt-3 flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="px-2">
               <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>{ROUND_LABELS[game!.round]}</p>
-              <p className="text-sm font-semibold" style={{ color: game!.round === 'finished' ? '#4ade80' : '#e8e4dc' }}>
+              <div className="text-sm font-semibold" style={{ color: game!.round === 'finished' ? '#4ade80' : '#e8e4dc' }}>
                 {game!.round === 'finished'
                   ? (game!.resultText || 'Hand over')
                   : myTurn
@@ -1063,7 +1065,7 @@ useEffect(() => {
                   Last action: {lastActionText}
                 </p>
               )}
-              </p>
+              </div>
               {error && <p className="text-xs text-red-400">{error}</p>}
             </div>
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

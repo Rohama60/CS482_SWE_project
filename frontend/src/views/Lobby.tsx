@@ -114,43 +114,52 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
     window.addEventListener('session-updated', refreshSession)
     return () => window.removeEventListener('session-updated', refreshSession)
   }, [])
+useEffect(() => {
+  let cancelled = false;
 
-  useEffect(() => {
-    let cancelled = false
+  async function loadChipBalance() {
+    try {
+      const headers = guest
+        ? { 'x-guest-id': guest.id }
+        : undefined;
 
-    async function loadChipBalance() {
-      try {
-        const headers = guest
-          ? { 'x-guest-id': guest.id }
-          : undefined
-        const response = await fetch('/api/players/me/chips', {
-          credentials: 'include',
-          ...(headers ? { headers } : {}),
-        })
-        if (!response.ok) return
+      const response = await fetch('/api/players/me/chips', {
+        credentials: 'include',
+        ...(headers ? { headers } : {}),
+      });
 
-        const data = await response.json()
-        if (!cancelled && Number.isFinite(data.chipamount)) {
-          setChipBalance(data.chipamount)
-        }
-      } catch (error) {
-        if (!cancelled) console.error('Failed to load chip balance', error)
+      if (!response.ok) {
+        console.error('Chip request failed:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!cancelled && Number.isFinite(data.chipamount)) {
+        setChipBalance(data.chipamount);
+      }
+    } catch (error) {
+      if (!cancelled) {
+        console.error('Failed to load chip balance:', error);
       }
     }
+  }
 
-    void loadChipBalance()
-    const refreshTimer = window.setInterval(loadChipBalance, 5000)
-    window.addEventListener('focus', loadChipBalance)
+  // Fetch once when the Lobby loads or the user changes
+  void loadChipBalance();
 
-    return () => {
-      cancelled = true
-      window.clearInterval(refreshTimer)
-      window.removeEventListener('focus', loadChipBalance)
-    }
-  }, [session?.user?.id, guest?.id])
- 
+  // Refresh when returning to the Lobby's browser tab
+  const handleFocus = () => {
+    void loadChipBalance();
+  };
 
-  // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.
+  window.addEventListener('focus', handleFocus);
+
+  return () => {
+    cancelled = true;
+    window.removeEventListener('focus', handleFocus);
+  };
+}, [session?.user?.id, guest?.id]);  // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.
   useEffect(() => {
     if (!session?.user || showFriends) return
     let cancelled = false

@@ -284,7 +284,9 @@ export async function GetPlayerHandController(req, res) {
 
 export async function GetPlayerChipsController(req, res) {
     try {
+        console.time('CHIPS AUTH');
         const player = await getJoiningPlayer(req);
+        console.timeEnd('CHIPS AUTH');
 
         if (!player) {
             return res.status(401).json({
@@ -292,7 +294,9 @@ export async function GetPlayerChipsController(req, res) {
             });
         }
 
+        console.time('CHIPS DB');
         const account = await getPlayerChips(player);
+        console.timeEnd('CHIPS DB');
 
         if (!account) {
             return res.status(404).json({
