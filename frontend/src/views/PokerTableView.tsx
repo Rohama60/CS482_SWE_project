@@ -32,6 +32,14 @@ function BetChips({ amount, position, tone = 'red' }: { amount: string; position
   )
 }
 
+function PotChips({ amount }: { amount: number }) {
+  return (
+    <div aria-label={`CurrentPot: $${amount}`}>
+      <BetChips amount={`CurrentPot: $${amount}`} position="relative" tone="cream" />
+    </div>
+  )
+}
+
 function PlayerSeat({
   name,
   chips,
@@ -204,6 +212,7 @@ type GameState = {
     winners?: { refId: string; amount: number; handName: string | null }[];
     resultText?: string;
     revealedHands?: Record<string, {rank: string; suit: string}[]>;
+    lastAction?: { playerId: string; type: 'fold' | 'check' | 'call' | 'raise' | 'draw'; amount: number };
 };
 
 type ServerPlayer = { refId: string; displayName: string; isBot: boolean; chips: number; folded: boolean; allIn: boolean; bet: number };
@@ -319,6 +328,15 @@ const me = serverMode ? game!.participants!.find(p => String(p.refId) === String
 const opponents = serverMode ? game!.participants!.filter(p => String(p.refId) !== String(serverPlayerId)) : [];
 const myTurn = serverMode && String(game!.currentTurn) === String(serverPlayerId) && !spectating;
 const legal = game?.legal;
+const lastAction = game?.lastAction;
+const lastActionPlayer = lastAction && game?.participants?.find(
+  player => String(player.refId) === String(lastAction.playerId)
+);
+const lastActionText = lastAction && lastActionPlayer && String(lastAction.playerId) !== String(serverPlayerId)
+  ? `${lastActionPlayer.displayName} ${lastAction.type === 'draw'
+    ? lastAction.amount > 0 ? `drew ${lastAction.amount} card${lastAction.amount === 1 ? '' : 's'}` : 'stood pat'
+    : `${{ fold: 'folded', check: 'checked', call: 'called', raise: 'raised' }[lastAction.type]}${lastAction.type === 'raise' || lastAction.type === 'call' ? ` $${lastAction.amount}` : ''}`}`
+  : null;
 const champions = serverMode
   ? (game!.winners ?? []).map(winner => ({
       ...winner,
@@ -712,31 +730,21 @@ useEffect(() => {
               
             {gameStarted && (
             <>
-              <p
-                className="text-xs uppercase tracking-[0.3em]"
-                style={{ color: '#e8e4dc', opacity: 0.5 }}
-              >
-                Current pot
-              </p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <PotChips amount={game?.potSize ?? 0} />
 
-              <p
-                className="mt-1 text-3xl font-semibold"
-                style={{ color: '#e8e4dc' }}
-              >
-                ${game?.potSize ?? 0}
-              </p>
-
-              {serverMode && (
-                <p
-                  className="mt-1 text-xs"
-                  style={{ color: '#e8e4dc', opacity: 0.55 }}
-                >
-                  {ROUND_LABELS[game!.round]}
-                  {game!.round === 'finished' && game!.resultText
-                    ? ` · ${game!.resultText}`
-                    : ''}
-                </p>
-              )}
+                {serverMode && (
+                  <p
+                    className="mt-1 text-xs"
+                    style={{ color: '#e8e4dc', opacity: 0.55 }}
+                  >
+                    {ROUND_LABELS[game!.round]}
+                    {game!.round === 'finished' && game!.resultText
+                      ? ` · ${game!.resultText}`
+                      : ''}
+                  </p>
+                )}
+              </div>
             </>
           )}              
               
@@ -1050,6 +1058,11 @@ useEffect(() => {
                   : myTurn
                     ? (game!.round === 'drawing' ? 'Your turn: pick cards to replace' : legal?.canCall ? `Your turn: $${legal.toCall} to call` : 'Your turn: check or bet')
                     : me?.folded ? 'You folded' : `Waiting for ${game!.participants!.find(p => p.refId === game!.currentTurn)?.displayName ?? 'other players'}...`}
+              {myTurn && lastActionText && (
+                <p className="mt-1 text-xs" style={{ color: '#f0a097' }}>
+                  Last action: {lastActionText}
+                </p>
+              )}
               </p>
               {error && <p className="text-xs text-red-400">{error}</p>}
             </div>
@@ -1077,7 +1090,6 @@ useEffect(() => {
                 </>
               ) : (
                 <>
-                  
                   {myTurn && legal?.canRaise && (
                     <>
                       <input type="number" aria-label="Raise amount" min={legal.minRaise} max={legal.maxRaise} step={legal.minRaise}
@@ -1089,10 +1101,14 @@ useEffect(() => {
                       </button>
                     </>
                   )}
-                  {legal?.canCall
-                    ? <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
-                    : <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
-                  <button disabled={!myTurn || busy} className="rounded-xl px-4 py-3 text-sm font-semibold  hover:brightness-110 disabled:opacity-40" style={{ background: '#b81010', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
+                  {myTurn && (
+                    <>
+                      {legal?.canCall
+                        ? <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
+                        : <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
+                      <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold hover:brightness-110 disabled:opacity-40" style={{ background: '#b81010', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
+                    </>
+                  )}
 
                 </>
               )}

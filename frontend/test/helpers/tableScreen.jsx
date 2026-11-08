@@ -187,5 +187,5 @@ export async function startGame() {
     screen.getByRole('button', { name: 'Start' })
   )
 
-  await screen.findByText('Current pot')
+  await screen.findByLabelText('CurrentPot: $3')
 }

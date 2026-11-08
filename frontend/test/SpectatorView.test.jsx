@@ -45,7 +45,7 @@ describe('Table screen while spectating (P3)', () => {
     await renderTable({ spectating: true })
     serverSends('game-started', { gameId: GAME._id, game: GAME })
 
-    expect(await screen.findByText('Current pot')).toBeInTheDocument()
+    expect(await screen.findByLabelText('CurrentPot: $3')).toBeInTheDocument()
     expect(yourCards()).toHaveLength(0)
     expect(callFor(`GET /api/games/${GAME._id}/hand`)).toBeUndefined()
     expect(screen.queryByRole('button', { name: /Draw/ })).not.toBeInTheDocument()

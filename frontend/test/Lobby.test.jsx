@@ -885,6 +885,32 @@ describe('Lobby: header', () => {
     expect(screen.queryByRole('button', { name: 'Sign Up to Save' })).not.toBeInTheDocument()
   })
 
+  test('signed-in users see the balance returned by the server', async () => {
+    await setup({
+      session: SESSION,
+      overrides: {
+        'GET /api/players/me/chips': () => jsonResponse({ chipamount: 725 }),
+      },
+    })
+
+    expect(await screen.findByText('🪙 725 Chips')).toBeInTheDocument()
+    expect(callFor('GET /api/players/me/chips')).toBeTruthy()
+  })
+
+  test('guests send their guest id when loading the live chip balance', async () => {
+    await setup({
+      guest: { id: 'guest-9', displayName: 'Guest42', chipamount: 500 },
+      overrides: {
+        'GET /api/players/me/chips': (_url, options) => {
+          expect(options.headers).toEqual({ 'x-guest-id': 'guest-9' })
+          return jsonResponse({ chipamount: 640 })
+        },
+      },
+    })
+
+    expect(await screen.findByText('Guest42 · $640 chips')).toBeInTheDocument()
+  })
+
   test('the profile menu opens and closes', async () => {
     const { user } = await setup({ session: SESSION })
     const profile = screen.getByRole('button', { name: /jane doe/i })

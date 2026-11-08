@@ -104,6 +104,9 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const [tables, setTables] = useState<PokerTableData[]>([])
   const [myTables, setMyTables] = useState<PokerTableData[]>([])
   const [editingTable, setEditingTable] = useState<PokerTableData | null>(null)
+  const [chipBalance, setChipBalance] = useState<number>(
+    guest?.chipamount ?? 500
+  )
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
 
   useEffect(() => {
@@ -111,6 +114,40 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
     window.addEventListener('session-updated', refreshSession)
     return () => window.removeEventListener('session-updated', refreshSession)
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadChipBalance() {
+      try {
+        const headers = guest
+          ? { 'x-guest-id': guest.id }
+          : undefined
+        const response = await fetch('/api/players/me/chips', {
+          credentials: 'include',
+          ...(headers ? { headers } : {}),
+        })
+        if (!response.ok) return
+
+        const data = await response.json()
+        if (!cancelled && Number.isFinite(data.chipamount)) {
+          setChipBalance(data.chipamount)
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Failed to load chip balance', error)
+      }
+    }
+
+    void loadChipBalance()
+    const refreshTimer = window.setInterval(loadChipBalance, 5000)
+    window.addEventListener('focus', loadChipBalance)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshTimer)
+      window.removeEventListener('focus', loadChipBalance)
+    }
+  }, [session?.user?.id, guest?.id])
  
 
   // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.
@@ -454,7 +491,7 @@ return (
                   color: '#facc15'
                 }}
               >
-                🪙 500 Chips
+                🪙 {chipBalance} Chips
               </span>
             </>
           ) : (
@@ -468,7 +505,7 @@ return (
               >
                 <div className="w-2 h-2 rounded-full" style={{ background: '#c0392b' }} />
                 <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>
-                  {guest ? `${guest.displayName} · $${guest.chipamount} chips` : 'Guest · $500 chips'}
+                  {guest ? `${guest.displayName} · $${chipBalance} chips` : `Guest · $${chipBalance} chips`}
                 </span>
               </div>
 

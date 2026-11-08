@@ -73,7 +73,7 @@ describe('Starting the game', () => {
   test('shows the pot and the blinds', async () => {
     await renderTable()
     await startGame()
-    expect(screen.getByText('$3')).toBeInTheDocument()
+    expect(screen.getByLabelText('CurrentPot: $3')).toBeInTheDocument()
     expect(screen.getByText('Small Blind · $1')).toBeInTheDocument()
     expect(screen.getByText(/Big Blind/)).toBeInTheDocument()
   })
@@ -299,7 +299,9 @@ describe('Betting actions', () => {
   test('Call sends a call action for the player', async () => {
     await renderTable({
       overrides: {
-        [actionUrl]: () => reply({ game: bettingGame({ canCall: true }) })
+        [actionUrl]: () => reply({
+          game: { ...bettingGame({ canCall: true }), potSize: 15 }
+        })
       }
     })
     await startGame()
@@ -309,6 +311,23 @@ describe('Betting actions', () => {
     await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
     const [, options] = callFor(actionUrl)
     expect(JSON.parse(options.body)).toEqual({ type: 'call' })
+    expect(await screen.findByLabelText('CurrentPot: $15')).toBeInTheDocument()
+  })
+
+  test('shows the previous player action when it is your turn', async () => {
+    const game = {
+      ...BOT_GAME,
+      lastAction: { playerId: 'bot-1', type: 'call', amount: 1 }
+    }
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({ game, seats: SEATS })
+      }
+    })
+    await startGame()
+
+    expect(screen.getByText('Last action: Bot (CPU) called $1')).toBeInTheDocument()
   })
 
   test('Check sends a check action when there is nothing to call', async () => {
@@ -365,7 +384,7 @@ describe('Betting actions', () => {
     expect(JSON.parse(options.body)).toEqual({ type: 'fold' })
   })
 
-  test('betting actions are disabled when it is not the player turn', async () => {
+  test('hides betting actions when it is not the player turn', async () => {
     const waitingGame = {
       ...bettingGame({ canCall: true }),
       currentTurn: 'bot-1'
@@ -378,8 +397,11 @@ describe('Betting actions', () => {
     })
     await startGame()
 
-    expect(screen.getByRole('button', { name: 'Call $1' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Fold' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Call $1' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Check' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Raise' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fold' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('spinbutton', { name: 'Raise amount' })).not.toBeInTheDocument()
   })
 })
 
