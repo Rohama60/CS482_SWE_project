@@ -21,7 +21,7 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { GetPlayerHandController } from '../src/controllers/PokerGameController.js';
 import { CreateBotGameController, BotGameActionController, BotGameDrawController, GetBotGameController, GetTableBotGameController, FoldBotGamePlayerOnLeave } from '../src/controllers/BotGameController.js';
-
+import { verifyAdmin, GetAdminUsersController, DeleteAdminUserController, UpdateAdminUserBalanceController } from '../src/controllers/AdminController.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,6 +79,11 @@ app.patch('/api/users/mute', PlayerMuteMusicController);
 app.post('/api/complaints', FileComplaintController);
 app.post('/api/auth/reset-password', SelfPasswordResetController);
 app.post('/api/admin/reset-password', AdminPasswordResetController);
+
+app.get('/api/admin/users', verifyAdmin, GetAdminUsersController);
+app.delete('/api/admin/users/:id', verifyAdmin, DeleteAdminUserController);
+app.patch('/api/admin/users/:id/balance', verifyAdmin, UpdateAdminUserBalanceController);
+
 app.post('/api/games', CreatePokerGameController);
 app.get('/api/games/:gameId/hand', GetPlayerHandController);
 app.get('/api/players/me/chips', GetPlayerChipsController);
