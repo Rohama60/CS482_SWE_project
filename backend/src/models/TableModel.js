@@ -5,6 +5,7 @@ const seatSchema = new mongoose.Schema({
     kind: { type: String, enum: ['user', 'guest'], required: true },
     refId: { type: String, required: true },
     displayName: { type: String, default: 'Player' },
+    ready: { type: Boolean, default: false}
 }, { _id: false });
 
 const tableSchema = new mongoose.Schema({
@@ -13,9 +14,36 @@ const tableSchema = new mongoose.Schema({
     blind: { type: String, required: true },
     max: { type: Number, required: true, min: 2, max: 6 },
     players: {type: Number, default:1},
-    bots: {type:Number, default:0},
-    status: {type: String, enum: ['waiting', 'active', 'full'], defult: 'waiting'},
-    avgPot: { type: String, default: '-' },
+    playerIds: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Account'
+        }],
+        default: []
+    },
+    guestIds: {
+        type: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Guest'
+        }],
+        default: []
+    },
+    
+    bots: { type: Number, default: 0 },
+
+    status: {
+        type: String,
+        enum: ['waiting', 'active', 'full'],
+        default: 'waiting'
+    },
+
+    // Tracks whether a poker game is currently running
+    gameInProgress: {
+        type: Boolean,
+        default: false
+    },
+
+    avgPot: { type: String, default: '-' },    
     hands: { type: Number, default: 0 },
     isPrivate: { type: Boolean, default: false },
     host: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },

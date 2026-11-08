@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { getGuest, clearGuest } from '../guestSession.ts'
 
 export function SignUpView({
   onClose,
@@ -11,19 +12,28 @@ export function SignUpView({
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // G2: if you're playing as a guest, your chips move to the new account
+  const guest = getGuest()
 
   async function handleSignUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
         const response = await fetch('/api/signup', { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name, email, password, username }),
+        body: JSON.stringify({ name, email, password, confirmPassword, username, guestId: guest?.id }),
       })
 
       const result = await response.json().catch(() => ({}))
@@ -33,6 +43,9 @@ export function SignUpView({
         return
       }
       console.log("Signup successful! Redirecting to lobby")
+      // G2: you're a member now, so forget the guest
+      if (guest) clearGuest()
+      window.dispatchEvent(new Event('session-updated'))
       onSuccess()
 
     } catch (err) {
@@ -50,7 +63,10 @@ export function SignUpView({
       <div className="relative w-full max-w-sm mx-4 rounded-2xl p-8" style={{ background: '#1c1e25', border: '1px solid #2a2d38' }}>
         <button onClick={onClose} className="absolute top-4 right-4 text-xl bg-transparentborder-none opacity-40 hover:opacity-80 transition-opacity" style={{ background : '#1c1e25', border : 'none',color: '#d4c6c6' }}>✕</button>
         <h2 className="text-2xl font-semibold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#c0392b' }}>Join the table</h2>
-        <p className="text-sm mb-6 opacity-50" style={{ color: '#e8e4dc' }}>Create your account to track wins</p>
+        <p className={`text-sm opacity-50 ${guest ? 'mb-2' : 'mb-6'}`} style={{ color: '#e8e4dc' }}>Create your account to track wins</p>
+        {guest && (
+          <p className="text-sm mb-6" style={{ color: '#f0a097' }}>Your guest chips will be saved to your new account.</p>
+        )}
         <form className="space-y-4" onSubmit={handleSignUp}>
           <div>
             <label className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>NAME</label>
@@ -101,6 +117,20 @@ export function SignUpView({
               className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all"
               style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }}
               onChange={e => setPassword(e.target.value)}
+              onFocus={e => (e.target.style.borderColor = '#c0392b')}
+              onBlur={e => (e.target.style.borderColor = '#2a2d38')}
+            />
+          </div>
+          <div>
+            <label htmlFor="signup-confirm-password" className="block text-xs font-medium mb-1.5 opacity-60" style={{ color: '#e8e4dc' }}>CONFIRM PASSWORD</label>
+            <input
+              id="signup-confirm-password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-all"
+              style={{ background: '#131418', border: '1px solid #2a2d38', color: '#e8e4dc' }}
+              onChange={e => setConfirmPassword(e.target.value)}
               onFocus={e => (e.target.style.borderColor = '#c0392b')}
               onBlur={e => (e.target.style.borderColor = '#2a2d38')}
             />

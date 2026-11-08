@@ -8,7 +8,10 @@ const accountSchema = new mongoose.Schema({
     chipamount: { type: Number, default: 500 },
     wins: { type: Number, default: 0 },
     losses: { type: Number, default: 0 },
-    role: { type: String, default: 'player' }
+    role: { 
+        type: String, 
+        enum: ['player', 'admin'],
+        default: 'player' }
     });
 
 

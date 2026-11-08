@@ -8,6 +8,7 @@ import type { PokerTableData } from './views/TableCreation.tsx'
 import { PokerTable } from './views/PokerTableView.tsx'
 import { joinTable, stopSpectating } from './tableJoin.ts'
 import { LoginModal } from './components/LoginModal.tsx'
+import { AdminDashboard } from './views/AdminDashboard.tsx'
 
 
 
@@ -38,6 +39,15 @@ export default function App() {
   function openSignUp() {
     setPreviousView(view);
     setView('signup');
+  }
+
+  if (view === 'admin') {
+    return (
+      <AdminDashboard
+        onLeave={() => setView('lobby')}
+        onSessionExpired={() => setView('home')}
+      />
+    )
   }
  
   if (view === 'lobby') {
@@ -102,7 +112,10 @@ export default function App() {
       {showLogin && (
         <LoginModal
           onClose={() => setShowLogin(false)}
-          onSuccess={() => { setShowLogin(false); setView('lobby') }}
+          onSuccess={(role) => {
+            setShowLogin(false)
+            setView(role === 'admin' ? 'admin' : 'lobby')
+          }}
           onSignUp={() => { setShowLogin(false); openSignUp() }}
         />
       )}

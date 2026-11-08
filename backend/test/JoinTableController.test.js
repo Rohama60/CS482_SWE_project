@@ -48,6 +48,11 @@ function makeTable(overrides = {}) {
     };
 }
 
+// Josue's live updates: the controller sends 'table-updated' to everyone in the table's room
+const mockEmit = jest.fn();
+const mockTo = jest.fn(() => ({ emit: mockEmit }));
+const fakeApp = { get: jest.fn(name => (name === 'io' ? { to: mockTo } : undefined)) };
+
 function makeRes() {
     return { status: jest.fn().mockReturnThis(), json: jest.fn() };
 }
@@ -83,37 +88,37 @@ describe('Invite codes', () => {
 describe('Who is joining', () => {
     test('a logged-in user', async () => {
         asUser();
-        const player = await getJoiningPlayer({ headers: {}, body: {} });
+        const player = await getJoiningPlayer({ headers: {}, app: fakeApp, body: {} });
         expect(player).toEqual({ kind: 'user', refId: ACCOUNT_ID, displayName: 'Preston' });
     });
 
     test('a guest from G1', async () => {
         asGuest();
-        const player = await getJoiningPlayer({ headers: {}, body: { guestId: GUEST_ID } });
+        const player = await getJoiningPlayer({ headers: {}, app: fakeApp, body: { guestId: GUEST_ID } });
         expect(player).toEqual({ kind: 'guest', refId: GUEST_ID, displayName: 'Guest-1234' });
     });
 
     test('nobody, when there is no session and no guest', async () => {
         mockGetSession.mockResolvedValue(null);
-        expect(await getJoiningPlayer({ headers: {}, body: {} })).toBeNull();
+        expect(await getJoiningPlayer({ headers: {}, app: fakeApp, body: {} })).toBeNull();
     });
 
     test('nobody, when the guest expired', async () => {
         mockGetSession.mockResolvedValue(null);
         mockFindGuestById.mockResolvedValue(null);
-        expect(await getJoiningPlayer({ headers: {}, body: { guestId: GUEST_ID } })).toBeNull();
+        expect(await getJoiningPlayer({ headers: {}, app: fakeApp, body: { guestId: GUEST_ID } })).toBeNull();
     });
 
     test('nobody, when the session has no matching account', async () => {
         mockGetSession.mockResolvedValue({ user: { id: 'auth-user-1' } });
         mockAccountFindOne.mockResolvedValue(null);
-        expect(await getJoiningPlayer({ headers: {}, body: {} })).toBeNull();
+        expect(await getJoiningPlayer({ headers: {}, app: fakeApp, body: {} })).toBeNull();
     });
 
     test('uses the username when there is no display name', async () => {
         mockGetSession.mockResolvedValue({ user: { id: 'auth-user-1' } });
         mockAccountFindOne.mockResolvedValue({ _id: ACCOUNT_ID, username: 'preston' });
-        const player = await getJoiningPlayer({ headers: {}, body: {} });
+        const player = await getJoiningPlayer({ headers: {}, app: fakeApp, body: {} });
         expect(player.displayName).toBe('preston');
     });
 });
@@ -126,7 +131,7 @@ describe('Join Table Controller (P7)', () => {
         mockUpdateTable.mockResolvedValue(makeTable({ players: 2, status: 'active' }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
 
         expect(mockAddSeatIfOpen).toHaveBeenCalledWith(TABLE_ID, {
             kind: 'guest', refId: GUEST_ID, displayName: 'Guest-1234'
@@ -145,7 +150,7 @@ describe('Join Table Controller (P7)', () => {
         mockAddSeatIfOpen.mockResolvedValue(makeTable({ players: 2, status: 'active' }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: {} }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: {} }, res);
 
         expect(mockAddSeatIfOpen).toHaveBeenCalledWith(TABLE_ID, expect.objectContaining({ kind: 'user', refId: ACCOUNT_ID }));
         expect(mockUpdateTable).not.toHaveBeenCalled(); // status was already right
@@ -159,7 +164,7 @@ describe('Join Table Controller (P7)', () => {
         mockUpdateTable.mockResolvedValue(makeTable({ players: 4, max: 4, status: 'full' }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
 
         expect(mockUpdateTable).toHaveBeenCalledWith(TABLE_ID, { status: 'full' });
         expect(res.status).toHaveBeenCalledWith(200);
@@ -170,7 +175,7 @@ describe('Join Table Controller (P7)', () => {
         mockFindTableById.mockResolvedValue(makeTable({ players: 4, max: 4, status: 'full' }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
 
         expect(mockAddSeatIfOpen).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(409);
@@ -182,7 +187,7 @@ describe('Join Table Controller (P7)', () => {
         mockAddSeatIfOpen.mockResolvedValue(null);
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
 
         expect(res.status).toHaveBeenCalledWith(409);
     });
@@ -199,7 +204,7 @@ describe('Join Table Controller (P7)', () => {
         mockFindTableById.mockResolvedValue(table);
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
 
         expect(mockAddSeatIfOpen).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(200);
@@ -211,7 +216,7 @@ describe('Join Table Controller (P7)', () => {
         mockFindTableById.mockResolvedValue(makeTable({ isPrivate: true, inviteCode: 'K7Q2MX' }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID, inviteCode: 'WRONG1' } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID, inviteCode: 'WRONG1' } }, res);
 
         expect(mockAddSeatIfOpen).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(403);
@@ -223,21 +228,21 @@ describe('Join Table Controller (P7)', () => {
         mockAddSeatIfOpen.mockResolvedValue(makeTable({ players: 2, status: 'active', isPrivate: true }));
         const res = makeRes();
 
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID, inviteCode: 'k7q2mx' } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID, inviteCode: 'k7q2mx' } }, res);
 
         expect(res.status).toHaveBeenCalledWith(200);
     });
 
     test('a bad table id is rejected', async () => {
         const res = makeRes();
-        await JoinTableController({ params: { id: 'nope' }, headers: {}, body: {} }, res);
+        await JoinTableController({ params: { id: 'nope' }, headers: {}, app: fakeApp, body: {} }, res);
         expect(res.status).toHaveBeenCalledWith(400);
     });
 
     test('someone not logged in and not a guest is rejected', async () => {
         mockGetSession.mockResolvedValue(null);
         const res = makeRes();
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: {} }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: {} }, res);
         expect(mockFindTableById).not.toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(401);
     });
@@ -246,7 +251,7 @@ describe('Join Table Controller (P7)', () => {
         asGuest();
         mockFindTableById.mockResolvedValue(null);
         const res = makeRes();
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
         expect(res.status).toHaveBeenCalledWith(404);
     });
 
@@ -254,7 +259,7 @@ describe('Join Table Controller (P7)', () => {
         asGuest();
         mockFindTableById.mockRejectedValue(new Error('DB down'));
         const res = makeRes();
-        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, body: { guestId: GUEST_ID } }, res);
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
         expect(res.status).toHaveBeenCalledWith(500);
     });
 });
@@ -266,7 +271,7 @@ describe('Join By Code Controller (P7)', () => {
         mockAddSeatIfOpen.mockResolvedValue(makeTable({ players: 2, status: 'active', isPrivate: true }));
         const res = makeRes();
 
-        await JoinByCodeController({ headers: {}, body: { guestId: GUEST_ID, inviteCode: ' k7q2mx ' } }, res);
+        await JoinByCodeController({ headers: {}, app: fakeApp, body: { guestId: GUEST_ID, inviteCode: ' k7q2mx ' } }, res);
 
         expect(mockFindTableByInviteCode).toHaveBeenCalledWith('K7Q2MX');
         expect(res.status).toHaveBeenCalledWith(200);
@@ -274,14 +279,14 @@ describe('Join By Code Controller (P7)', () => {
 
     test('an empty code is rejected', async () => {
         const res = makeRes();
-        await JoinByCodeController({ headers: {}, body: { inviteCode: '   ' } }, res);
+        await JoinByCodeController({ headers: {}, app: fakeApp, body: { inviteCode: '   ' } }, res);
         expect(res.status).toHaveBeenCalledWith(400);
     });
 
     test('someone not logged in and not a guest is rejected', async () => {
         mockGetSession.mockResolvedValue(null);
         const res = makeRes();
-        await JoinByCodeController({ headers: {}, body: { inviteCode: 'K7Q2MX' } }, res);
+        await JoinByCodeController({ headers: {}, app: fakeApp, body: { inviteCode: 'K7Q2MX' } }, res);
         expect(res.status).toHaveBeenCalledWith(401);
     });
 
@@ -289,7 +294,7 @@ describe('Join By Code Controller (P7)', () => {
         asGuest();
         mockFindTableByInviteCode.mockResolvedValue(null);
         const res = makeRes();
-        await JoinByCodeController({ headers: {}, body: { guestId: GUEST_ID, inviteCode: 'ZZZZZZ' } }, res);
+        await JoinByCodeController({ headers: {}, app: fakeApp, body: { guestId: GUEST_ID, inviteCode: 'ZZZZZZ' } }, res);
         expect(res.status).toHaveBeenCalledWith(404);
     });
 
@@ -297,7 +302,29 @@ describe('Join By Code Controller (P7)', () => {
         asGuest();
         mockFindTableByInviteCode.mockRejectedValue(new Error('DB down'));
         const res = makeRes();
-        await JoinByCodeController({ headers: {}, body: { guestId: GUEST_ID, inviteCode: 'K7Q2MX' } }, res);
+        await JoinByCodeController({ headers: {}, app: fakeApp, body: { guestId: GUEST_ID, inviteCode: 'K7Q2MX' } }, res);
         expect(res.status).toHaveBeenCalledWith(500);
+    });
+});
+
+describe('Live table updates', () => {
+    test('joining tells everyone at the table that it changed', async () => {
+        asGuest();
+        mockFindTableById.mockResolvedValue(makeTable());
+        const updated = makeTable({ players: 2, status: 'active' });
+        mockAddSeatIfOpen.mockResolvedValue(updated);
+        const res = makeRes();
+
+        await JoinTableController({ params: { id: TABLE_ID }, headers: {}, app: fakeApp, body: { guestId: GUEST_ID } }, res);
+
+        expect(mockTo).toHaveBeenCalledWith(`table-${TABLE_ID}`);
+        expect(mockEmit).toHaveBeenCalledWith('table-updated', updated);
+    });
+
+    test('a guest can also be sent in the x-guest-id header', async () => {
+        mockGetSession.mockResolvedValue(null);
+        mockFindGuestById.mockResolvedValue({ id: GUEST_ID, displayName: 'Guest-1234' });
+        const player = await getJoiningPlayer({ headers: { 'x-guest-id': GUEST_ID }, body: {} });
+        expect(player).toEqual({ kind: 'guest', refId: GUEST_ID, displayName: 'Guest-1234' });
     });
 });

@@ -19,7 +19,7 @@ export async function deleteTable(id) {
 }
 
 export async function updateTable(id, updateData) {
-    return await Table.findByIdAndUpdate(id, updateData, { new: true });
+    return await Table.findByIdAndUpdate(id, updateData, { returnDocument: 'after' });
 }
 export async function findTablesByHost(hostId) {
     return await Table.find({ host: hostId })
@@ -37,14 +37,40 @@ export async function addSeatIfOpen(id, seat) {
     return await Table.findOneAndUpdate(
         {
             _id: id,
+            gameInProgress: {$ne: true},
             $expr: { $lt: ['$players', '$max'] },
             'seats.refId': { $ne: seat.refId }
         },
+        
         // P3: a spectator who takes a seat stops being a spectator
         { $push: { seats: seat }, $inc: { players: 1 }, $pull: { spectators: { refId: seat.refId } } },
         { returnDocument: 'after' }
     );
 }
+export async function removeSeat(id, player) {
+    return await Table.findOneAndUpdate(
+        {
+            _id: id,
+            seats: {
+                $elemMatch: {
+                    kind: player.kind,
+                    refId: player.refId
+                }
+            }
+        },
+        {
+            $pull: {
+                seats: {
+                    kind: player.kind,
+                    refId: player.refId
+                }
+            },
+            $inc: { players: -1 }
+        },
+        { returnDocument: 'after' }
+    );
+}
+    
 
 // P3: start watching. $addToSet-style check on refId so the same person isn't listed twice.
 export async function addSpectator(id, spectator) {
@@ -61,5 +87,21 @@ export async function removeSpectator(id, refId) {
         id,
         { $pull: { spectators: { refId } } },
         { returnDocument: 'after' }
+    );
+}
+// Atomically claim a table when starting a game
+export async function startTableGame(id, session) {
+    return await Table.findOneAndUpdate(
+        {
+            _id: id,
+            gameInProgress: { $ne: true }
+        },
+        {
+            $set: { gameInProgress: true }
+        },
+        {
+            returnDocument: 'after',
+            session
+        }
     );
 }

@@ -4,6 +4,8 @@ import { authClient } from '../../lib/auth-client.ts'
 import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
+import { FriendsPage } from './FriendsPage.tsx'
+import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 type LobbyProps = {
   onBack: () => void;
@@ -11,6 +13,7 @@ type LobbyProps = {
   onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
 };
+
 
 
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
@@ -81,7 +84,12 @@ function SeatDots({ filled, max }: { filled: number; max: number }) {
   )
 }
 export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
-  const {data: session} = authClient.useSession()
+ const { data: session, isPending, error: sessionError } = authClient.useSession()
+  const isAuthenticated = Boolean(session?.user)
+
+  console.log('SESSION:', session)
+  console.log('SESSION LOADING:', isPending)
+  console.log('SESSION ERROR:', sessionError)
   const guest = getGuest()
   console.log('CURRENT SESSION:', session)
   console.log('CURRENT GUEST:', guest)
@@ -90,11 +98,67 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
   const [filter, setFilter] = useState<StakeFilter>('all')
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
+  const [showFriends, setShowFriends] = useState(false)
+  // P11: how many friend requests are waiting, for the badge on the Friends button
+  const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
   const [myTables, setMyTables] = useState<PokerTableData[]>([])
   const [editingTable, setEditingTable] = useState<PokerTableData | null>(null)
+  const [chipBalance, setChipBalance] = useState<number>(
+    guest?.chipamount ?? 500
+  )
   const filtered = filter === 'all' ? tables : tables.filter(t => t.stakes === filter)
+
+  useEffect(() => {
+    const refreshSession = () => authClient.$store.notify('$sessionSignal')
+    window.addEventListener('session-updated', refreshSession)
+    return () => window.removeEventListener('session-updated', refreshSession)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadChipBalance() {
+      try {
+        const headers = guest
+          ? { 'x-guest-id': guest.id }
+          : undefined
+        const response = await fetch('/api/players/me/chips', {
+          credentials: 'include',
+          ...(headers ? { headers } : {}),
+        })
+        if (!response.ok) return
+
+        const data = await response.json()
+        if (!cancelled && Number.isFinite(data.chipamount)) {
+          setChipBalance(data.chipamount)
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Failed to load chip balance', error)
+      }
+    }
+
+    void loadChipBalance()
+    const refreshTimer = window.setInterval(loadChipBalance, 5000)
+    window.addEventListener('focus', loadChipBalance)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshTimer)
+      window.removeEventListener('focus', loadChipBalance)
+    }
+  }, [session?.user?.id, guest?.id])
  
+
+  // P11: count friend requests for the badge. Re-checks when you come back from the Friends page.
+  useEffect(() => {
+    if (!session?.user || showFriends) return
+    let cancelled = false
+    getFriendRequests()
+      .then(requests => { if (!cancelled) setRequestCount(requests.length) })
+      .catch(() => { if (!cancelled) setRequestCount(0) })
+    return () => { cancelled = true }
+  }, [session?.user?.id, showFriends])
 
   useEffect(() => {
     fetch('/api/tables')
@@ -132,7 +196,13 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          name: config.name,
+          stakes: config.stakes,
+          seats: config.seats,
+          bots: config.Bots ? config.botCount : 0,
+          isPrivate: config.isPrivate,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -309,8 +379,15 @@ async function handleSignOut() {
   }
 }
 
-
-  return (
+if (showFriends && isAuthenticated) {
+    return (
+      <FriendsPage
+        onBack={() => setShowFriends(false)}
+        onJoinTable={tableId => handleJoin({ id: tableId } as PokerTableData)}
+      />
+    )
+  }
+return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
       {/* Red top line */}
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #c0392b 30%, #c0392b 70%, transparent)' }} />
@@ -356,106 +433,95 @@ async function handleSignOut() {
               <AudioSettings userId={session?.user?.id ?? ''} />
             </div>
           )}
-        {session?.user ? (
-  <>
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setShowProfileMenu(prev => !prev)}
-        aria-expanded={showProfileMenu}
-        aria-haspopup="menu"
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-125"
-        style={{
-          background: '#1c1e25',
-          border: '1px solid #2a2d38',
-          color: '#e8e4dc'
-        }}
-      >
-        <span style={{ color: '#c0392b' }}>♠</span>
 
-        {session.user.name}
+          {session?.user ? (
+            <>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowProfileMenu(prev => !prev)}
+                  aria-expanded={showProfileMenu}
+                  aria-haspopup="menu"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-125"
+                  style={{
+                    background: '#1c1e25',
+                    border: '1px solid #2a2d38',
+                    color: '#e8e4dc'
+                  }}
+                >
+                  <span style={{ color: '#c0392b' }}>♠</span>
+                  {session.user.name}
+                  <span className="text-[9px] ml-1" style={{ opacity: 0.45 }}>
+                    {showProfileMenu ? '▲' : '▼'}
+                  </span>
+                </button>
 
-        <span
-          className="text-[9px] ml-1"
-          style={{ opacity: 0.45 }}
-        >
-          {showProfileMenu ? '▲' : '▼'}
-        </span>
-      </button>
+                {showProfileMenu && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-1.5 w-36 rounded-lg p-1 z-50 shadow-lg"
+                    style={{
+                      background: '#1c1e25',
+                      border: '1px solid #2a2d38'
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                      }}
+                    >
+                      <span style={{ color: '#c0392b' }}>↪</span>
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
 
-      {showProfileMenu && (
-            <div
-              role="menu"
-              className="absolute right-0 top-full mt-1.5 w-36 rounded-lg p-1 z-50 shadow-lg"
-              style={{
-                background: '#1c1e25',
-                border: '1px solid #2a2d38'
-              }}
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+              <span
+                className="px-3 py-1.5 text-xs font-medium rounded-lg"
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#e8e4dc'
+                  background: '#1c1e25',
+                  border: '1px solid #2a2d38',
+                  color: '#facc15'
                 }}
               >
-                <span style={{ color: '#c0392b' }}>↪</span>
-                Sign out
+                🪙 {chipBalance} Chips
+              </span>
+            </>
+          ) : (
+            <>
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                style={{
+                  background: '#1c1e25',
+                  border: '1px solid #2a2d38'
+                }}
+              >
+                <div className="w-2 h-2 rounded-full" style={{ background: '#c0392b' }} />
+                <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>
+                  {guest ? `${guest.displayName} · $${chipBalance} chips` : `Guest · $${chipBalance} chips`}
+                </span>
+              </div>
+
+              <button
+                onClick={onSignUp}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
+                style={{
+                  background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                  color: '#fff'
+                }}
+              >
+                Sign Up to Save
               </button>
-            </div>
+            </>
           )}
         </div>
-
-        <span
-          className="px-3 py-1.5 text-xs font-medium rounded-lg"
-          style={{
-            background: '#1c1e25',
-            border: '1px solid #2a2d38',
-            color: '#facc15'
-          }}
-        >
-          🪙 500 Chips
-        </span>
-      </>
-    ) : (
-      // Keep your existing guest JSX here
-
-            <>
-                {/* Guest user */}
-                <div
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                    style={{
-                        background: '#1c1e25',
-                        border: '1px solid #2a2d38'
-                    }}
-                >
-                    <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: '#c0392b' }}
-                    />
-
-                    <span className="text-xs font-medium" style={{ color: '#e8e4dc', opacity: 0.7 }}>
-                        {guest ? `${guest.displayName} · $${guest.chipamount} chips` : 'Guest · $500 chips'}
-                    </span>
-                </div>
-
-                <button
-                    onClick={onSignUp}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all hover:brightness-110"
-                    style={{
-                        background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
-                        color: '#fff'
-                    }}
-                >
-                    Sign Up to Save
-                </button>
-            </>
-        )}
-    </div>
       </header>
 
       <div className="relative z-10 flex-1 w-full px-6 py-8" style={{ maxWidth: '72rem', margin: '0 auto' }}>
@@ -469,15 +535,42 @@ async function handleSignOut() {
               {tables.filter(t => t.status !== 'full').length} tables with open seats
             </p>
           </div>
-           <button
-            onClick= { () => setShowCreateTable(true) }
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-            style={{ background: 'linear-gradient(135deg, #c0392b, #8b1a1a)', color: '#fff', border: '1px solid #c0392b' }}
-          >
-            <span aria-hidden="true">+</span> Create Table
-          </button>
-        </div>
 
+          <div className="flex items-center gap-2">
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowFriends(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+                style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #3a3d49' }}
+              >
+                <span className="relative flex h-5 w-5 items-center justify-center" aria-hidden="true">
+                  👥
+                  <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full" style={{ background: '#4ade80', border: '1px solid #1c1e25' }} />
+                </span>
+                Friends
+                {requestCount > 0 && (
+                  <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: 'rgba(192,57,43,0.18)', color: '#f0a097' }} title="Friend requests waiting">
+                    {requestCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowCreateTable(true)}
+              disabled={!isAuthenticated}
+              title={!isAuthenticated ? 'Sign up to create a table' : undefined}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, #c0392b, #8b1a1a)',
+                color: '#fff',
+                border: '1px solid #c0392b',
+              }}
+            >
+              <span aria-hidden="true">+</span> Create Table
+            </button>
+          </div>
+        </div>
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-3 mb-8">
           {[

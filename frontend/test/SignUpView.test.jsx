@@ -44,6 +44,7 @@ describe('SignUpView Component Tests', () => {
         expect(screen.getByPlaceholderText('RoyalFlushKing')).toBeInTheDocument();
 
         expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Confirm your password')).toBeInTheDocument();
 
         expect(screen.getByRole('button', { name: 'Create Account' }))
             .toBeInTheDocument();
@@ -64,6 +65,7 @@ describe('SignUpView Component Tests', () => {
         const emailInput = screen.getByPlaceholderText('you@example.com');
         const usernameInput = screen.getByPlaceholderText('RoyalFlushKing');
         const passwordInput = screen.getByPlaceholderText('••••••••');
+        const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
 
         fireEvent.change(nameInput, {
             target: { value: 'John Smith' }
@@ -80,11 +82,15 @@ describe('SignUpView Component Tests', () => {
         fireEvent.change(passwordInput, {
             target: { value: 'password123' }
         });
+        fireEvent.change(confirmPasswordInput, {
+            target: { value: 'password123' }
+        });
 
         expect(nameInput).toHaveValue('John Smith');
         expect(emailInput).toHaveValue('john@example.com');
         expect(usernameInput).toHaveValue('john123');
         expect(passwordInput).toHaveValue('password123');
+        expect(confirmPasswordInput).toHaveValue('password123');
     });
 
 
@@ -123,6 +129,9 @@ describe('SignUpView Component Tests', () => {
         fireEvent.change(screen.getByPlaceholderText('••••••••'), {
             target: { value: 'password123' }
         });
+        fireEvent.change(screen.getByPlaceholderText('Confirm your password'), {
+            target: { value: 'password123' }
+        });
 
         fireEvent.click(screen.getByRole('button', {
             name: 'Create Account'
@@ -142,9 +151,30 @@ describe('SignUpView Component Tests', () => {
                 name: 'John Smith',
                 email: 'john@example.com',
                 password: 'password123',
+                confirmPassword: 'password123',
                 username: 'john123'
             })
         });
+    });
+
+    test('Displays an error and does not submit when passwords do not match', async () => {
+        render(
+            <SignUpView
+                onClose={mockOnClose}
+                onSuccess={mockOnSuccess}
+            />
+        );
+
+        fireEvent.change(screen.getByPlaceholderText('••••••••'), {
+            target: { value: 'password123' }
+        });
+        fireEvent.change(screen.getByPlaceholderText('Confirm your password'), {
+            target: { value: 'differentpassword' }
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+
+        expect(await screen.findByText('Passwords do not match')).toBeInTheDocument();
+        expect(global.fetch).not.toHaveBeenCalled();
     });
 
 
