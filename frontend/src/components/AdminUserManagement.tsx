@@ -76,7 +76,6 @@ export function AdminUserManagement() {
     }
   };
 
-  // --- Inline Style Definitions ---
   const containerStyle = {
     backgroundColor: '#1c1e25',
     border: '1px solid #2a2d38',
@@ -175,7 +174,6 @@ export function AdminUserManagement() {
         </span>
       </div>
 
-      {/* Controls Bar */}
       <div style={controlsStyle}>
         <input
           type="text"
