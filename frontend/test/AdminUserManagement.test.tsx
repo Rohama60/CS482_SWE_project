@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { AdminUserManagement } from '../components/AdminUserManagement';
+import { AdminUserManagement } from '../src/components/AdminUserManagement';
 
 describe('AdminUserManagement Component', () => {
   beforeEach(() => {
