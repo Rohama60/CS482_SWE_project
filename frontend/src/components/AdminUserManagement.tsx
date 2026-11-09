@@ -2,11 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 
 interface User {
   _id: string;
-  name: string;
-  email: string;
-  balance: number;
-  role: string;
-  lastActive: string;
+  name?: string;
+  displayName?: string;
+  username?: string;
+  email?: string;
+  balance?: number;
+  chips?: number;
+  role?: string;
+  lastActive?: string;
+  updatedAt?: string;
 }
 
 export function AdminUserManagement() {
@@ -21,12 +25,13 @@ export function AdminUserManagement() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch(`/api/admin/users?search=${encodeURIComponent(searchQuery)}&sortBy=${sortBy}`, {
         credentials: 'include'
       });
       if (!res.ok) throw new Error('Failed to retrieve user directory');
       const data = await res.json();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : (data.docs || []));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -175,7 +180,7 @@ export function AdminUserManagement() {
         <input
           type="text"
           style={inputStyle}
-          placeholder="Search users by name or email..."
+          placeholder="Search users by name, username, or email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -206,65 +211,79 @@ export function AdminUserManagement() {
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user._id}>
-                  <td style={thTdStyle}>
-                    <div style={{ fontWeight: 'bold' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{user.email}</div>
-                  </td>
-                  <td style={thTdStyle}>
-                    <span style={badgeStyle(user.role === 'admin')}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td style={thTdStyle}>
-                    {editingUserId === user._id ? (
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <input
-                          type="number"
-                          style={{ ...inputStyle, padding: '4px 8px', width: '90px' }}
-                          value={newBalance}
-                          onChange={(e) => setNewBalance(Number(e.target.value))}
-                        />
-                        <button 
-                          style={buttonStyle('success')}
-                          onClick={() => handleUpdateBalance(user._id)}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ color: '#27ae60', fontWeight: 'bold' }}>
-                        ${user.balance.toLocaleString()}
-                      </span>
-                    )}
-                  </td>
-                  <td style={thTdStyle}>
-                    <span style={{ fontSize: '0.85rem', color: '#3498db' }}>
-                      {new Date(user.lastActive).toLocaleDateString()}
-                    </span>
-                  </td>
-                  <td style={thTdStyle}>
-                    {editingUserId !== user._id && (
-                      <button
-                        style={buttonStyle('warning')}
-                        onClick={() => {
-                          setEditingUserId(user._id);
-                          setNewBalance(user.balance);
-                        }}
-                      >
-                        Edit Balance
-                      </button>
-                    )}
-                    <button
-                      style={buttonStyle('danger')}
-                      onClick={() => handleDelete(user._id)}
-                    >
-                      Delete
-                    </button>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: '#95a5a6' }}>
+                    No users found.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                users.map((user) => {
+                  const displayName = user.name || user.displayName || user.username || 'Unnamed User';
+                  const displayBalance = user.balance ?? user.chips ?? 0;
+                  const activeDate = user.lastActive || user.updatedAt;
+
+                  return (
+                    <tr key={user._id}>
+                      <td style={thTdStyle}>
+                        <div style={{ fontWeight: 'bold' }}>{displayName}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#95a5a6' }}>{user.email || 'No email'}</div>
+                      </td>
+                      <td style={thTdStyle}>
+                        <span style={badgeStyle(user.role === 'admin')}>
+                          {user.role || 'user'}
+                        </span>
+                      </td>
+                      <td style={thTdStyle}>
+                        {editingUserId === user._id ? (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <input
+                              type="number"
+                              style={{ ...inputStyle, padding: '4px 8px', width: '90px' }}
+                              value={newBalance}
+                              onChange={(e) => setNewBalance(Number(e.target.value))}
+                            />
+                            <button 
+                              style={buttonStyle('success')}
+                              onClick={() => handleUpdateBalance(user._id)}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#27ae60', fontWeight: 'bold' }}>
+                            ${displayBalance.toLocaleString()}
+                          </span>
+                        )}
+                      </td>
+                      <td style={thTdStyle}>
+                        <span style={{ fontSize: '0.85rem', color: '#3498db' }}>
+                          {activeDate ? new Date(activeDate).toLocaleDateString() : 'N/A'}
+                        </span>
+                      </td>
+                      <td style={thTdStyle}>
+                        {editingUserId !== user._id && (
+                          <button
+                            style={buttonStyle('warning')}
+                            onClick={() => {
+                              setEditingUserId(user._id);
+                              setNewBalance(displayBalance);
+                            }}
+                          >
+                            Edit Balance
+                          </button>
+                        )}
+                        <button
+                          style={buttonStyle('danger')}
+                          onClick={() => handleDelete(user._id)}
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
