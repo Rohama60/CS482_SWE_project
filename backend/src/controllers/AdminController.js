@@ -20,6 +20,7 @@ export async function verifyAdmin(req, res, next) {
         if (!account || account.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied: Administrator privileges required' });
         }
+        
         req.adminAccount = account;
         next();
     } catch (error) {
