@@ -3,10 +3,9 @@ import { auth } from '../Auth.js';
 import Account from '../models/AccountModel.js';
 import AuditLog from '../models/AuditLog.js';
 
-// Admin Authentication
+// Admin Authentication Middleware
 export async function verifyAdmin(req, res, next) {
     try {
-        // Checks the active session
         const session = await auth.api.getSession({
             headers: new Headers(req.headers || {})
         });
@@ -15,7 +14,6 @@ export async function verifyAdmin(req, res, next) {
             return res.status(401).json({ error: 'Authentication required' });
         }
 
-        // Checks the Admin Role
         const account = await Account.findOne({ userId: session.user.id });
         if (!account || account.role !== 'admin') {
             return res.status(403).json({ error: 'Access denied: Administrator privileges required' });
@@ -35,7 +33,6 @@ export async function GetAdminUsersController(req, res) {
         const { search, sortBy = 'lastActive' } = req.query;
         let query = {};
 
-        // Build case-insensitive search filter across username, email, and displayName
         if (search) {
             query = {
                 $or: [
@@ -64,13 +61,11 @@ export async function DeleteAdminUserController(req, res) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
 
-        // Find and delete the target account
         const targetAccount = await Account.findByIdAndDelete(id);
         if (!targetAccount) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Record the deletion action in the audit log
         await AuditLog.create({
             adminId: req.adminAccount._id,
             action: 'DELETE_USER',
@@ -96,12 +91,10 @@ export async function UpdateAdminUserBalanceController(req, res) {
             return res.status(400).json({ error: 'Invalid user ID' });
         }
 
-        // Ensure the submitted balance is a valid number
         if (typeof balance !== 'number') {
             return res.status(400).json({ error: 'Invalid balance amount' });
         }
 
-        // Update the account balance and return the modified document
         const updatedAccount = await Account.findByIdAndUpdate(
             id,
             { balance },
@@ -112,7 +105,6 @@ export async function UpdateAdminUserBalanceController(req, res) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Record the balance update action in the audit log
         await AuditLog.create({
             adminId: req.adminAccount._id,
             action: 'UPDATE_BALANCE',
