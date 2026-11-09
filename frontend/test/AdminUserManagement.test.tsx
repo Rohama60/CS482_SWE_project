@@ -169,7 +169,7 @@ fireEvent.change(screen.getByPlaceholderText('Search users by name, username, or
 target: { value: 'theo' },
 })
 await waitFor(() => expect(screen.queryByText('Mara')).not.toBeInTheDocument())
-expect(screen.getByText('Theo')).toBeInTheDocument()
+expect(await screen.findByText('Theo')).toBeInTheDocument()
 })
 })
 describe('AdminUserManagement: editing a balance', () => {
