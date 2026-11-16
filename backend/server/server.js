@@ -8,21 +8,17 @@ import Guest from '../src/models/GuestModel.js';
 import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { LoginController } from '../src/controllers/LoginController.js';
-import { GetChatController, registerChatHandlers } from '../src/controllers/ChatController.js';
-import { GetFriendsController, GetFriendRequestsController, SendFriendRequestController, AcceptFriendRequestController, DeclineFriendRequestController, RemoveFriendController } from '../src/controllers/FriendController.js';
+import { registerChatHandlers } from '../src/controllers/ChatController.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
-import { CreateTableController , GetTablesController, GetTableByIdController, DeleteTableController, GetMyTablesController, UpdateTableController} from '../src/controllers/TableController.js';
-import { JoinTableController, JoinByCodeController } from '../src/controllers/JoinTableController.js';
-import { SpectateTableController, StopSpectatingController } from '../src/controllers/SpectateController.js';
-import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
-import { GetUsersController, GetCurrentUserController, GetUserByIdController, PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
-import { requireAccount } from '../src/middleware/accountAuth.js';
-import { CreatePokerGameController, LeaveTableController, GetPlayerChipsController } from '../src/controllers/PokerGameController.js';  
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
-import { GetPlayerHandController } from '../src/controllers/PokerGameController.js';
-import { CreateBotGameController, BotGameActionController, BotGameDrawController, GetBotGameController, GetTableBotGameController, FoldBotGamePlayerOnLeave } from '../src/controllers/BotGameController.js';
-import { verifyAdmin, GetAdminUsersController, DeleteAdminUserController, UpdateAdminUserBalanceController } from '../src/controllers/AdminController.js';
+import friendRoutes from './routes/friendRoutes.js';
+import tableRoutes from './routes/tableRoutes.js';
+import guestRoutes from './routes/guestRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
+import memberRoutes from './routes/memberRoutes.js';
+import gameRoutes, { botGameRouter, playerRouter } from './routes/gameRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,43 +50,15 @@ app.use((req, res, next) => {
 
 app.post('/api/signup', SignUpController);
 app.post('/api/login', LoginController);
-app.get('/api/friends', GetFriendsController);
-app.get('/api/friends/requests', GetFriendRequestsController);
-app.post('/api/friends/requests', SendFriendRequestController);
-app.post('/api/friends/requests/:id/accept', AcceptFriendRequestController);
-app.post('/api/friends/requests/:id/decline', DeclineFriendRequestController);
-app.delete('/api/friends/:friendId', RemoveFriendController);
-app.post('/api/tables', CreateTableController);
-app.get('/api/tables', GetTablesController);
-app.get('/api/tables/mine', GetMyTablesController);
-app.post('/api/tables/join-code', JoinByCodeController);
-app.post('/api/tables/:id/join', JoinTableController);
-app.post('/api/tables/:id/leave', FoldBotGamePlayerOnLeave, LeaveTableController);
-app.post('/api/tables/:id/spectate', SpectateTableController);
-app.post('/api/tables/:id/stop-spectating', StopSpectatingController);
-app.get('/api/tables/:id/chat', GetChatController);
-app.get('/api/tables/:id', GetTableByIdController);
-app.put('/api/tables/:id', UpdateTableController);
-app.delete('/api/tables/:id', DeleteTableController);
-
-app.post('/api/guests', CreateGuestController);
-app.get('/api/guests/:id', GetGuestByIdController);
-
-app.get('/api/users', verifyAdmin, GetUsersController);
-app.get('/api/users/me', requireAccount, GetCurrentUserController);
-app.get('/api/users/:id', requireAccount, GetUserByIdController);
-app.patch('/api/users/mute', PlayerMuteMusicController);
-app.post('/api/complaints', FileComplaintController);
-app.post('/api/auth/reset-password', SelfPasswordResetController);
-app.post('/api/admin/reset-password', AdminPasswordResetController);
-
-app.get('/api/admin/users', verifyAdmin, GetAdminUsersController);
-app.delete('/api/admin/users/:id', verifyAdmin, DeleteAdminUserController);
-app.patch('/api/admin/users/:id/balance', verifyAdmin, UpdateAdminUserBalanceController);
-
-app.post('/api/games', CreatePokerGameController);
-app.get('/api/games/:gameId/hand', GetPlayerHandController);
-app.get('/api/players/me/chips', GetPlayerChipsController);
+app.use('/api', memberRoutes);
+app.use('/api/friends', friendRoutes);
+app.use('/api/tables', tableRoutes);
+app.use('/api/guests', guestRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/games', gameRoutes);
+app.use('/api/bot-games', botGameRouter);
+app.use('/api/players', playerRouter);
 app.use((req, res, next) => {
   if (req.path !== '/api/players/me/chips') {
     return next();
@@ -108,11 +76,6 @@ app.use((req, res, next) => {
 
   next();
 });
-app.post('/api/bot-games', CreateBotGameController);
-app.post('/api/bot-games/:gameId/action', BotGameActionController);
-app.post('/api/bot-games/:gameId/draw', BotGameDrawController);
-app.get('/api/bot-games/:gameId', GetBotGameController);
-app.get('/api/tables/:id/bot-game', GetTableBotGameController);
 io.use(async (socket, next) => {
     try {
         const cookie = socket.handshake.headers.cookie || '';
