@@ -1,9 +1,8 @@
 import mongoose from 'mongoose';
-import { auth } from '../Auth.js';
-import Account from '../models/AccountModel.js';
 import { findTableById, findTableByInviteCode, addSeatIfOpen, updateTable } from '../dao/TableDAO.js';
 import { findGuestById } from '../dao/GuestDAO.js';
 import { normalizeInviteCode } from '../utils/inviteCode.js';
+import { getAccountFromRequest } from '../middleware/accountAuth.js';
 
 // P7: As a Player, I want to join a public/private game, so that I can play poker
 // (if a code is given for private).
@@ -11,15 +10,12 @@ import { normalizeInviteCode } from '../utils/inviteCode.js';
 // Works out who is joining: a logged-in user first, otherwise a guest from G1.
 // Returns a seat like { kind, refId, displayName }, or null if we can't tell.
 export async function getJoiningPlayer(req) {
-    const session = await auth.api.getSession({ headers: new Headers(req.headers || {}) });
-
-    if (session?.user) {
-        const account = await Account.findOne({ userId: session.user.id });
-        if (!account) return null;
+    const account = await getAccountFromRequest(req);
+    if (account) {
         return {
             kind: 'user',
             refId: String(account._id),
-            displayName: account.displayName || account.username
+            displayName: account.displayName || account.username,
         };
     }
 

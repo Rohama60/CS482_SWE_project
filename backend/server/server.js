@@ -15,7 +15,8 @@ import { CreateTableController , GetTablesController, GetTableByIdController, De
 import { JoinTableController, JoinByCodeController } from '../src/controllers/JoinTableController.js';
 import { SpectateTableController, StopSpectatingController } from '../src/controllers/SpectateController.js';
 import { CreateGuestController, GetGuestByIdController } from '../src/controllers/GuestController.js';
-import { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
+import { GetUsersController, GetCurrentUserController, GetUserByIdController, PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } from '../src/controllers/UserController.js';
+import { requireAccount } from '../src/middleware/accountAuth.js';
 import { CreatePokerGameController, LeaveTableController, GetPlayerChipsController } from '../src/controllers/PokerGameController.js';  
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
@@ -75,6 +76,9 @@ app.delete('/api/tables/:id', DeleteTableController);
 app.post('/api/guests', CreateGuestController);
 app.get('/api/guests/:id', GetGuestByIdController);
 
+app.get('/api/users', verifyAdmin, GetUsersController);
+app.get('/api/users/me', requireAccount, GetCurrentUserController);
+app.get('/api/users/:id', requireAccount, GetUserByIdController);
 app.patch('/api/users/mute', PlayerMuteMusicController);
 app.post('/api/complaints', FileComplaintController);
 app.post('/api/auth/reset-password', SelfPasswordResetController);

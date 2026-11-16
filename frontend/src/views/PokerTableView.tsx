@@ -4,10 +4,20 @@ import { getGuest } from "../guestSession";
 import { socket } from "../socket";
 import { TableChat } from "../components/TableChat.tsx";
 import {authClient } from "../AuthClient.ts";
+import {
+  getBotGame,
+  getPlayerChips,
+  getPlayerHand,
+  getTable,
+  leaveTable,
+  sendBotAction,
+  startBotGame,
+  type CardData,
+  type GameState,
+  type TableSeat,
+} from "../pokerApi.ts";
 const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid Stakes', high: 'High Stakes' }
 
-
-type CardData = { rank: string; suit: string }
 
 function BetChips({ amount, position, tone = 'red' }: { amount: string; position: string; tone?: 'red' | 'black' | 'cream' }) {
   const colors = {
@@ -182,46 +192,13 @@ type PokerTableProps = {
   onLeave: () => void;
   spectating?: boolean;
   onTakeSeat?: () => void;
-  isHost?: boolean;
 };
 
-type TableSeat = {
-  kind: 'user' | 'guest';
-  refId: string;
-  displayName: string;
-  ready?: boolean;
-  isHost?: boolean;
-};
-
-type GameState = {
-    _id: string;
-    smallBlind: number;
-    bigBlind: number;
-    smallBlindPlayerId: string;
-    bigBlindPlayerId: string;
-    currentBet: number;
-    currentTurn: string;
-    playerBets: Record<string, number>;
-    potSize: number;
-    round: string;
-    //filled in by the server once bots/betting are in play
-    participants?: ServerPlayer[];
-    legal?: LegalActions;
-    myHand?: {rank: string; suit: string}[] | null;
-    myTurnToDraw? : boolean;
-    winners?: { refId: string; amount: number; handName: string | null }[];
-    resultText?: string;
-    revealedHands?: Record<string, {rank: string; suit: string}[]>;
-    lastAction?: { playerId: string; type: 'fold' | 'check' | 'call' | 'raise' | 'draw'; amount: number };
-};
-
-type ServerPlayer = { refId: string; displayName: string; isBot: boolean; chips: number; folded: boolean; allIn: boolean; bet: number };
-type LegalActions = { canAct: boolean; toCall?: number; canCheck?: boolean; canCall?: boolean; canRaise?: boolean; minRaise?: number; maxRaise?: number };
 const SERVER_ROUNDS = ['betting1', 'drawing', 'betting2', 'finished'];
 const SUIT_SYMBOLS: Record<string, string> = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
 const ROUND_LABELS: Record<string, string> = { betting1: 'First betting round', drawing: 'Draw', betting2: 'Final betting round', finished: 'Hand over' };
 
-export function PokerTable({table,onLeave,spectating = false,onTakeSeat,isHost}: PokerTableProps) {
+export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerTableProps) {
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([])
@@ -232,9 +209,8 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat,isHost}:
   const [chipBalance, setChipBalance] = useState<number | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [error, setError] = useState('')
-  const [complete, setComplete] = useState(false)
+  const complete = false
   const [showHelp, setShowHelp] = useState(false)
-  const [showTableMenu, setShowTableMenu] = useState(false)
   const [players, setPlayers] = useState<TableSeat[]>([])
   const [raiseBy, setRaiseBy] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -260,9 +236,6 @@ const host =
 
 
 const myReady = Boolean(currentPlayer?.ready);
-
-const tableHostId =
-  (table as PokerTableData & { host?: string | null }).host;
 
 const otherSeatedPlayers = players.filter(
   player => String(player.refId) !== String(table.host)
@@ -345,13 +318,6 @@ const champions = serverMode
     }))
   : [];
 
-function guestHeaders(): Record<string, string> {
-  const guest = getGuest();
-  return guest
-    ? { 'x-guest-id': guest.id, 'Content-Type': 'application/json' }
-    : { 'Content-Type': 'application/json' };
-}
-
 function applyServerGame(g: GameState) {
   setGame(g);
   if (g.myHand) {
@@ -362,11 +328,8 @@ function applyServerGame(g: GameState) {
 
 async function refreshGame(id: string) {
   try {
-    const response = await fetch(`/api/bot-games/${id}`, { credentials: 'include', headers: guestHeaders() });
-    const data = await response.json();
-    if (response.ok && data.game) {
-      applyServerGame(data.game);
-    }
+    const data = await getBotGame(id)
+    applyServerGame(data.game)
   } catch (e) {
     console.error('Could not refresh game', e);
   }
@@ -377,14 +340,7 @@ async function sendToGame(path: 'action' | 'draw', body: object) {
   setBusy(true);
   setError('');
   try {
-    const response = await fetch(`/api/bot-games/${gameId}/${path}`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: guestHeaders(),
-      body: JSON.stringify(body),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || 'That move was not allowed');
+    const data = await sendBotAction(gameId, path, body)
     applyServerGame(data.game);
     await fetchMyChips();
   } catch (e) {
@@ -404,21 +360,7 @@ async function sendToGame(path: 'action' | 'draw', body: object) {
 async function fetchMyChips() {
     console.trace('fetchMyChips called');
     try {
-        const guest = getGuest();
-
-        const response = await fetch('/api/players/me/chips', {
-            credentials: 'include',
-            headers: guest
-                ? { 'x-guest-id': guest.id }
-                : {}
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to fetch chips');
-        }
-
+        const data = await getPlayerChips()
         setChipBalance(data.chipamount);
 
     } catch (error) {
@@ -434,20 +376,7 @@ useEffect(() => {
 
 async function fetchMyHand(id: string) {
     try {
-        const guest = getGuest();
-
-        const response = await fetch(`/api/games/${id}/hand`, {
-            credentials: 'include',
-            headers: guest
-                ? { 'x-guest-id': guest.id }
-                : {}
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to retrieve cards');
-        }
+        const data = await getPlayerHand(id)
 
         const suitSymbols: Record<string, string> = {
             hearts: '♥',
@@ -477,20 +406,7 @@ async function fetchMyHand(id: string) {
     setIsStarting(true);
 
       try {
-          const response = await fetch('/api/bot-games', {
-              method: 'POST',
-              headers: guestHeaders(),
-              credentials: 'include',
-              body: JSON.stringify({ 
-                  tableId: table.id 
-                })
-              })
-
-          const data = await response.json()
-
-          if (!response.ok) {
-              throw new Error(data.message || data.error || 'Failed to start game')
-          }
+              const data = await startBotGame(table.id)
           setGameId(data.game._id);
           applyServerGame(data.game);
           setPlayers(data.seats ?? []);
@@ -526,11 +442,6 @@ async function fetchMyHand(id: string) {
     void sendToGame('draw', { discard: selected });
 }
 
-  function newHand() {
-    setHand([])
-    setSelected([])
-    setComplete(false)
-  }
   async function handleLeaveTable() {
     console.log('1. Leave button')
     if(spectating) {
@@ -538,30 +449,7 @@ async function fetchMyHand(id: string) {
       return;
     }
     try {
-        const guest = getGuest();
-        console.log('2. Guest info:', guest);
-        const response = await fetch(`/api/tables/${table.id}/leave`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                guestId: guest?.id
-            })
-        });
-        
-        console.log('3. Backend response status:', response.status);
-
-        const data = await response.json();
-
-        console.log('4. Backend response:', data);
-
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to leave table');
-        }
-
-        console.log('Player removed from table:', data);
+        await leaveTable(table.id)
 
         // Return to the lobby after successful removal
         onLeave();
@@ -578,19 +466,7 @@ useEffect(() => {
         const currentRequest = ++requestNumber;
 
         try {
-            const response = await fetch(`/api/tables/${table.id}`, {
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch table players');
-            }
-
-            const data = await response.json();
-            console.log('TABLE ID:', table.id);
-            console.log('ALL SEATS FROM DATABASE:', data.seats);
-
-            console.log('Fetched players:', data.seats);
+            const data = await getTable(table.id)
 
             if (active && currentRequest === requestNumber) {
                 setPlayers(data.table?.seats ?? data.seats  ?? []);
