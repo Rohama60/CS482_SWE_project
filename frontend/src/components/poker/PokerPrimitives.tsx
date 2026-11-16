@@ -55,6 +55,7 @@ export function PlayerSeat({
   active = false,
   empty = false,
   showCards = false,
+  cardCount = 5,
   blindLabel = '',
   blindAmount = 0,
   betAmount = 0,
@@ -66,6 +67,7 @@ export function PlayerSeat({
   active?: boolean
   empty?: boolean
   showCards?: boolean
+  cardCount? : number
   blindLabel?: string
   blindAmount?: number
   betAmount?: number
@@ -76,7 +78,7 @@ export function PlayerSeat({
         <span className="absolute -left-2 bottom-1 h-7 w-3 rounded-full" style={{ background: '#2b0a0b', border: '1px solid #691d1a' }} />
         <span className="absolute -right-2 bottom-1 h-7 w-3 rounded-full" style={{ background: '#2b0a0b', border: '1px solid #691d1a' }} />
       </div>
-      {!empty && showCards && <div className="relative z-10"><CardBacks /></div>}
+      {!empty && showCards && <div className="relative z-10"><CardBacks count={cardCount} /></div>}
       <div className="relative z-10 -mt-1 min-w-28 rounded-xl px-3 py-2 text-center shadow-xl" style={{ background: active ? 'linear-gradient(135deg, #6b1010, #450a0a)' : '#17191f', border: `1px solid ${active ? '#c0392b' : '#343743'}` }}>
         {dealer && <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold" style={{ background: '#eee9df', color: '#15171d' }}>D</span>}
         {empty ? (
