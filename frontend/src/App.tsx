@@ -9,6 +9,8 @@ import { PokerTable } from './views/PokerTableView.tsx'
 import { joinTable, stopSpectating } from './tableJoin.ts'
 import { LoginModal } from './components/LoginModal.tsx'
 import { AdminDashboard } from './views/AdminDashboard.tsx'
+import ProfileTab from './views/ProfileTab.tsx'
+import { authClient } from './AuthClient.ts'
 
 
 
@@ -32,8 +34,28 @@ export default function App() {
   const [view, setView] = useState<View>('home')
   const [selectedTable, setSelectedTable] = useState<PokerTableData>(TABLES[0])
   const [previousView, setPreviousView] = useState<View>('home')
+  const [profileReturnView, setProfileReturnView] = useState<View>('home')
   const [spectating, setSpectating] = useState(false) // P3
   const [showLogin, setShowLogin] = useState(false)
+  const { data: session } = authClient.useSession()
+
+  function openProfile(returnTo: View) {
+    setProfileReturnView(returnTo)
+    setView('profile')
+  }
+
+  async function handleProfileLogout() {
+    try {
+      const { error } = await authClient.signOut()
+      if (error) {
+        console.error('Sign out failed:', error)
+        return
+      }
+      setView('home')
+    } catch (error) {
+      console.error('Sign out failed:', error)
+    }
+  }
 
 
   function openSignUp() {
@@ -64,8 +86,28 @@ export default function App() {
             setSpectating(true);
             setView('table');
           }}
-       
+          onProfile={() => openProfile('lobby')}
         onSignUp={openSignUp}
+      />
+    )
+  }
+
+  if (view === 'profile') {
+    if (!session?.user) {
+      return <Home view="home" setView={setView} onSignUp={openSignUp} onSignIn={() => setShowLogin(true)} onProfile={() => openProfile('home')} />
+    }
+
+    return (
+      <ProfileTab
+        user={{
+          id: session.user.id,
+          displayName: session.user.name,
+          username: session.user.name,
+          email: session.user.email,
+          role: 'player',
+        }}
+        onBack={() => setView(profileReturnView)}
+        onLogout={handleProfileLogout}
       />
     )
   }
@@ -108,7 +150,13 @@ export default function App() {
  
   return (
     <>
-      <Home view={view} setView={setView} onSignUp={openSignUp} onSignIn={() => setShowLogin(true)} />
+      <Home
+        view={view}
+        setView={setView}
+        onSignUp={openSignUp}
+        onSignIn={() => setShowLogin(true)}
+        onProfile={() => openProfile('home')}
+      />
       {showLogin && (
         <LoginModal
           onClose={() => setShowLogin(false)}
