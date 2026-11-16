@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SeatDots } from '../components/lobby/SeatDots'
 
 const STAKE_COLORS: Record<string, string> = { low: '#22c55e', medium: '#f59e0b', high: '#c0392b' }
 const STAKE_LABELS: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' }
@@ -38,21 +39,6 @@ export type PokerTableData = {
     displayName: string
   }[]
 }
-
-function SeatDots({ filled, max }: { filled: number; max: number }) {
-  return (
-    <div className="flex gap-1">
-      {Array.from({ length: max }).map((_, i) => (
-        <div
-          key={i}
-          className="w-2 h-2 rounded-full"
-          style={{ background: i < filled ? '#c0392b' : '#2a2d38' }}
-        />
-      ))}
-    </div>
-  )
-}
-
 
 export function TableCreation({
   onClose,

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { AdminUserManagement } from '../components/AdminUserManagement';
 
 type AdminSection = 'ads' | 'users' | 'poker-tables'
 

@@ -8,14 +8,7 @@ import {
   type Friend,
   type FriendRequest,
 } from "../friendsApi.ts"
-
-// P11: two letters for the avatar circle, like "JO" for Josue
-function initialsOf(name: string) {
-  return name.trim().slice(0, 2).toUpperCase()
-}
-
-// P11: dot color for each status. Playing is red like her design; idle means signed up but not at a table.
-const STATUS_COLORS: Record<string, string> = { playing: '#e05c4e', idle: '#f59e0b' }
+import { FriendAvatar } from "../components/friends/FriendAvatar.tsx"
 
 
 // ==================== FRIENDS TAB: UI, tabs, search, requests, and invites ====================
@@ -168,16 +161,7 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
                       className="flex items-center gap-3 rounded-xl px-3 py-3"
                       style={{ background: '#111318', border: '1px solid #292c35' }}
                     >
-                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'linear-gradient(145deg, #6b1010, #2b0a0b)', border: '1px solid #9d2a23', color: '#e8e4dc' }}>
-                        {initialsOf(friend.displayName)}
-                        <span
-                          className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2"
-                          style={{
-                            background: STATUS_COLORS[friend.status] ?? '#555864',
-                            borderColor: '#111318',
-                          }}
-                        />
-                      </div>
+                      <FriendAvatar friend={friend} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="truncate text-sm font-semibold" style={{ color: '#e8e4dc' }}>{friend.displayName}</p>
@@ -213,9 +197,7 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
               <div className="flex flex-col gap-2">
                 {requests.map(request => (
                   <div key={request.id} className="flex items-center gap-3 rounded-xl p-4" style={{ background: '#111318', border: '1px solid #292c35' }}>
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold" style={{ background: 'linear-gradient(145deg, #6b1010, #2b0a0b)', border: '1px solid #9d2a23', color: '#e8e4dc' }}>
-                      {initialsOf(request.from.displayName)}
-                    </div>
+                    <FriendAvatar friend={{ ...request.from, status: 'idle' }} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>{request.from.displayName}</p>
                       <p className="mt-0.5 text-xs" style={{ color: '#e8e4dc', opacity: 0.38 }}>Sent you a friend request</p>
