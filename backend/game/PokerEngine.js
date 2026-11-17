@@ -138,6 +138,18 @@ export function getLegalActions(state, refId) {
     };
 }
 
+export function returnFoldedHandToDeck(state, refId) {
+    const cards = state.hands[refId] ?? [];
+
+    if (cards.length === 0) return;
+
+    // pop() draws from the end, so unshift() returns
+    // these cards to the bottom of the deck.
+    state.deck.unshift(...cards);
+
+    // This player no longer holds these cards.
+    state.hands[refId] = [];
+}
 /**
  * Applies fold / check / call / raise for the player whose turn it is.
  * For 'raise', `amount` is how much to raise BY (on top of the call).
@@ -155,6 +167,7 @@ export function applyBettingAction(state, refId, action) {
 
     if (type === 'fold') {
         player.folded = true;
+        returnFoldedHandToDeck(state,refId);
     } else if (type === 'check') {
         if (!legal.canCheck) throw new GameRuleError('You cannot check, there is a bet to call');
     } else if (type === 'call') {
@@ -407,6 +420,12 @@ export function forceFold(state, refId) {
     const player = state.participants.find(p => p.refId === refId);
     if (!player || player.folded || state.round === 'finished') return state;
     player.folded = true;
+    returnFoldedHandToDeck(state, refId);
+    state.lastAction = {
+        playerId: refId,
+        type: 'fold',
+        amount: 0
+    };
 
     const stillIn = state.participants.filter(isLive);
     if (stillIn.length === 1) {

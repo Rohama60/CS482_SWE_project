@@ -93,10 +93,12 @@ export function FlippingPlayingCard({
   card,
   selected,
   onClick,
+  faceDown = false,
 }: {
   card: CardData
   selected: boolean
   onClick: () => void
+  faceDown?: boolean
 }) {
   return (
     <div className="shrink-0" style={{ perspective: 1000}}>
@@ -104,7 +106,7 @@ export function FlippingPlayingCard({
       className="relative shrink-0"
       style={{ transformStyle: 'preserve-3d' }}
       initial={{ rotateY: 180 }}
-      animate={{ rotateY: 0 }}
+      animate={{ rotateY: faceDown ? 180 : 0 }}
       transition={{
         duration: 0.42,
         ease: 'easeOut',
@@ -267,20 +269,20 @@ export function ShuffleAnimation() {
 
 
 type DrawExchangeAnimationProps = {
-  phase: "discard" | "receive";
+  phase: "discard" | "receive" | "fold";
   indexes: number[];
   opponentIndex?: number;
+  cards?: CardData[];
 };
 
 export function DrawExchangeAnimation({
   phase,
   indexes,
   opponentIndex,
+  cards,
 }: DrawExchangeAnimationProps) {
-  const discarding = phase === "discard";
-
-  // Determine whether we're animating our own hand
-  // or another player's hand.
+  const discarding = phase !== "receive";
+  const folding = phase === "fold";
   const isOpponent = opponentIndex !== undefined;
 
   const seat = isOpponent
@@ -295,13 +297,20 @@ export function DrawExchangeAnimation({
       aria-hidden="true"
     >
       {indexes.map((slot, index) => {
-        const handX = isOpponent
-          ? seat!.left
-          : `calc(50% + ${(slot - 2) * 36}px)`;
+        const spacing = isOpponent ? 16 : 36;
 
-        const handY = isOpponent
-          ? seat!.top
-          : "91%";
+        const handX = isOpponent
+          ? `calc(${seat!.left} + ${(slot - 2) * spacing}px)`
+          : `calc(50% + ${(slot - 2) * spacing}px)`;
+
+        const handY = isOpponent ? seat!.top : "91%";
+
+        // Fold: flip first, pause, then move to deck.
+        const travelDelay = folding
+          ? 0.55 + index * 0.2
+          : index * 0.16;
+
+        const card = folding ? cards?.[slot] : undefined;
 
         return (
           <motion.div
@@ -310,43 +319,91 @@ export function DrawExchangeAnimation({
             style={{
               width: 40,
               height: 56,
+              perspective: 1000,
             }}
             initial={{
               left: discarding ? handX : "35%",
               top: discarding ? handY : "42%",
               x: "-50%",
               y: "-50%",
-              rotate: 0,
-              scale: 0.8,
+              scale: 1,
             }}
             animate={{
               left: discarding ? "35%" : handX,
               top: discarding ? "42%" : handY,
               x: "-50%",
               y: "-50%",
-              rotate: 0,
-              scale: 0.8,
+              scale: 1,
             }}
             transition={{
               duration: 0.42,
-              delay: index * 0.16,
+              delay: travelDelay,
               ease: "easeInOut",
             }}
           >
-            <div
-              style={{
-                width: 40,
-                height: 56,
-                background:
-                  "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
-                border: "2px solid #eee9df",
-                borderRadius: 5,
-              }}
-            />
+            {folding && card ? (
+              // Reverse of receiving a card:
+              // face up -> flip -> red back
+              <motion.div
+                className="relative h-full w-full"
+                style={{ transformStyle: "preserve-3d" }}
+                initial={{ rotateY: 0 }}
+                animate={{ rotateY: 180 }}
+                transition={{
+                  duration: 0.35,
+                  ease: "easeInOut",
+                }}
+              >
+                {/* Front of the card */}
+                <div
+                  className="absolute inset-0 flex flex-col
+                    items-center justify-center rounded-md
+                    border-2 border-[#eee9df] bg-[#eee9df]"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    color:
+                      card.suit === "♥" ||
+                      card.suit === "♦" ||
+                      card.suit === "hearts" ||
+                      card.suit === "diamonds"
+                        ? "#b4232a"
+                        : "#15171d",
+                  }}
+                >
+                  <span className="text-lg font-bold">
+                    {card.rank}
+                  </span>
+                  <span className="text-xl">
+                    {card.suit}
+                  </span>
+                </div>
+
+                {/* Red back of the card */}
+                <div
+                  className="absolute inset-0 rounded-md"
+                  style={{
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                    background:
+                      "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
+                    border: "2px solid #eee9df",
+                  }}
+                />
+              </motion.div>
+            ) : (
+              // Bots and opponents already show card backs
+              <div
+                className="h-full w-full rounded-md"
+                style={{
+                  background:
+                    "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
+                  border: "2px solid #eee9df",
+                }}
+              />
+            )}
           </motion.div>
         );
       })}
     </div>
   );
 }
-

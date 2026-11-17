@@ -46,11 +46,22 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   count: number;
   phase: "discard" | "receive";
 } | null>(null);
+const [foldAnimation, setFoldAnimation] = useState<{
+  playerId: string;
+  opponentIndex?: number;
+  cards?: CardData[];
+  phase: "flip" | "travel";
+} | null>(null);
+
+const foldTimer = useRef<number | null>(null);
+const lastFoldKey = useRef<string | null>(null);
 
 const opponentDrawTimers = useRef<number[]>([]);
 const lastOpponentDrawKey = useRef<string | null>(null);
 const viewerRefId = useRef<string | null>(null);
   const [hand, setHand] = useState<CardData[]>([])
+  const handRef = useRef<CardData[]>([]);
+  handRef.current = hand;
   const [gameStarted, setGameStarted] = useState(false)
     // Card dealing animation state
   const [dealing, setDealing] = useState(false);
@@ -455,6 +466,67 @@ async function draw() {
   }
 }
 
+async function fold() {
+  if (!myTurn || busy || !actionsUnlocked || !gameId) {
+    return;
+  }
+
+  setBusy(true);
+  setError("");
+
+  const playerId = String(serverPlayerId);
+
+  try {
+    const cardsToFold = [...hand];
+
+    // STEP 1: Flip the ORIGINAL cards face down.
+    // Keep them visible in their normal positions.
+    setFoldAnimation({
+      playerId,
+      cards: cardsToFold,
+      phase: "flip",
+    });
+
+    await new Promise<void>(resolve =>
+      window.setTimeout(resolve, 500)
+    );
+
+    // STEP 2: Replace the original cards with animated
+    // face-down cards that travel into the deck.
+    setFoldAnimation({
+      playerId,
+      cards: cardsToFold,
+      phase: "travel",
+    });
+
+    await new Promise<void>(resolve =>
+      window.setTimeout(resolve, 1900)
+    );
+
+    // STEP 3: Only now submit the fold to the backend.
+    const data = await sendBotAction(
+      gameId,
+      "action",
+      { type: "fold" }
+    );
+
+    applyServerGame(data.game);
+    await fetchMyChips();
+
+  } catch (error) {
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Could not fold"
+    );
+  } finally {
+    setFoldAnimation(null);
+    setBusy(false);
+  }
+}
+
+
+
 
   async function handleLeaveTable() {
     console.log('1. Leave button')
@@ -532,12 +604,61 @@ useEffect(() => {
   // Bots and other players move on the server: reload our private view
     
       
-  const handleGameUpdated = (data: {
-    gameId: string;
-    game?: GameState;
-    handNumber?: number;
-  }) => {
-    const action = data.game?.lastAction;
+    const handleGameUpdated = (data: {
+      gameId: string;
+      game?: GameState;
+      handNumber?: number;
+    }) => {
+      const action = data.game?.lastAction;
+
+    if (
+      action?.type === "fold" &&
+      data.game?.participants &&
+      (
+        spectating ||
+        String(action.playerId) !== String(viewerRefId.current)
+      )
+    ) {
+    const foldKey =
+      `${data.gameId}-${data.handNumber ?? ""}-fold-${action.playerId}`;
+
+    if (lastFoldKey.current !== foldKey) {
+      lastFoldKey.current = foldKey;
+
+      const isOwnFold =
+        !spectating &&
+        String(action.playerId) === String(viewerRefId.current);
+
+      const visibleOpponents = data.game.participants.filter(
+        player =>
+          spectating ||
+          String(player.refId) !== String(viewerRefId.current)
+      );
+
+      const opponentIndex = visibleOpponents.findIndex(
+        player => String(player.refId) === String(action.playerId)
+      );
+
+      if (isOwnFold || opponentIndex >= 0) {
+        if (foldTimer.current !== null) {
+          window.clearTimeout(foldTimer.current);
+        }
+
+        setFoldAnimation({
+          playerId: String(action.playerId),
+          opponentIndex,
+          phase: "travel",
+        });
+
+        // 350ms hold + four stagger delays + 420ms travel
+        foldTimer.current = window.setTimeout(() => {
+          setFoldAnimation(null);
+          foldTimer.current = null;
+        }, 1900);
+      }
+    }
+  }
+
 
     // Detect a draw performed by another player or bot
     if (
@@ -632,6 +753,11 @@ useEffect(() => {
     // Clear any unfinished opponent draw animations
         opponentDrawTimers.current.forEach(window.clearTimeout);
         opponentDrawTimers.current = [];
+        // Clear fold animation timer
+        if (foldTimer.current !== null) {
+            window.clearTimeout(foldTimer.current);
+            foldTimer.current = null;
+        }
 
         socket.off('table-updated', handleTableUpdated);
         socket.off('game-started', handleGameStarted);
@@ -790,6 +916,14 @@ useEffect(() => {
           (_, index) => index
         )}
         opponentIndex={opponentDrawAnimation.opponentIndex}
+      />
+    )}
+    {/* Adding FOlding animation */}
+    {foldAnimation && (
+      <DrawExchangeAnimation
+        phase="fold"
+        indexes={[0, 1, 2, 3, 4]}
+        opponentIndex={foldAnimation.opponentIndex}
       />
     )}
 
@@ -1011,7 +1145,13 @@ useEffect(() => {
               <div className="relative z-10 mb-2 flex items-end justify-center -space-x-1 sm:space-x-1">
                 {spectating ? (
                   gameStarted && !dealing ? <CardBacks count={5} /> : null
-                ) : gameStarted && hand.length > 0 ? (
+                ) : gameStarted &&
+                    hand.length > 0 &&
+                    !me?.folded &&
+                    !(
+                      foldAnimation?.phase === "travel" &&
+                      String(foldAnimation.playerId) === String(serverPlayerId)
+                    ) ? (
                   
                   hand.slice(0, dealtToMe).map((card, index) => (
                     <div
@@ -1026,14 +1166,24 @@ useEffect(() => {
                       <FlippingPlayingCard
                         card={card}
                         selected={selected.includes(index)}
+                        faceDown={
+                          foldAnimation?.phase ==="flip" &&
+                          String(foldAnimation.playerId) === String(serverPlayerId)
+                        }
                         onClick={() => toggleCard(index)}
                       />
                     </div>
                   ))
 
-              ) : (
-                <p className="text-sm font-semibold" style={{ color: '#e8e4dc'}}>
-                  Waiting for cards...</p>
+            ) : (
+                !me?.folded ? (
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: '#e8e4dc' }}
+                  >
+                    Waiting for cards...
+                  </p>
+                ) : null
               )}
               </div>
               <div
@@ -1196,8 +1346,8 @@ useEffect(() => {
                       {legal?.canCall
                         ? <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#15803D', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'call' })}>Call ${legal.toCall}</button>
                         : <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-40" style={{ background: '#475569', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'check' })}>Check</button>}
-                      <button disabled={busy} className="rounded-xl px-4 py-3 text-sm font-semibold hover:brightness-110 disabled:opacity-40" style={{ background: '#b81010', border: '1px solid #343743', color: '#e8e4dc' }} onClick={() => void sendToGame('action', { type: 'fold' })}>Fold</button>
-                    </>
+                        <button disabled={busy || !myTurn} className="rounded-xl px-4 py-3 text-sm font-semibold hover:brightness-110 disabled:opacity-40" style={{ background: '#b81010', border: '1px solid #343743', color: '#e8e4dc'}} onClick={() => void fold()}> Fold  </button>
+                         </>
                   )}
 
                 </>
