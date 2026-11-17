@@ -1,11 +1,14 @@
 import type { PokerTableData } from "./TableCreation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getGuest } from "../guestSession";
 import { socket } from "../socket";
 import { TableChat } from "../components/TableChat.tsx";
 import {authClient } from "../AuthClient.ts";
-import { BetChips, CardBacks, PlayerSeat, PlayingCard, PotChips } from "../components/poker/PokerPrimitives";
+import { BetChips, CardBacks, PlayerSeat, PotChips } from "../components/poker/PokerPrimitives";
 import { PLAYER_POSITIONS, STAKE_LABELS } from "../components/poker/pokerConstants";
+import { useDealingTimer } from "../hooks/useDealingTimer.ts";
+import { DealingAnimation, FlippingPlayingCard, ShuffleAnimation } from "../components/poker/cardAnimation.tsx";
+import { getDealtToMe, getDealtToOpponent } from "../utils/dealingUtils.ts";
 import {
   getBotGame,
   getPlayerChips,
@@ -35,6 +38,16 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   const [selected, setSelected] = useState<number[]>([])
   const [hand, setHand] = useState<CardData[]>([])
   const [gameStarted, setGameStarted] = useState(false)
+    // Card dealing animation state
+  const [dealing, setDealing] = useState(false);
+  const [dealStep, setDealStep] = useState(-1);
+  const [dealOpponentCount, setDealOpponentCount] = useState(0);
+  const [shuffling, setShuffling] = useState(false);
+
+  // Remember which game has already started its animation
+  const dealGameId = useRef<string | null>(null);
+  const dealtToMe = getDealtToMe(dealing,dealStep,dealOpponentCount);
+  const dealtToOpponent = (index: number) =>getDealtToOpponent(dealing,dealStep,dealOpponentCount,spectating,index);
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
   const [chipBalance, setChipBalance] = useState<number | null>(null);
@@ -76,7 +89,36 @@ const everyoneReady =
   !!currentPlayer &&
   players.length + (table.bots ?? 0) >= 2 &&
   otherSeatedPlayers.every(player => player.ready === true);
+function startDealing(
+  gameId: string,
+  opponentCount: number
+) {
+    if (dealGameId.current === gameId) return;
 
+    dealGameId.current = gameId;
+
+    setDealOpponentCount(
+      Math.min(5, Math.max(0, opponentCount))
+    );
+
+    setDealStep(-1);
+
+    // Start the shuffle first
+    setShuffling(true);
+
+    // Activate the shuffle + dealing sequence
+    setDealing(true);
+  }
+
+// Controls shuffle timing and dealing timing
+useDealingTimer({
+  dealing,
+  dealOpponentCount,
+  spectating,
+  setDealing,
+  setDealStep,
+  setShuffling,
+});
 function handleReady() {
   if (spectating || host || !currentPlayer || myReady || readyPending) {
     return;
@@ -230,7 +272,17 @@ async function fetchMyHand(id: string) {
     setIsStarting(true);
 
       try {
-              const data = await startBotGame(table.id)
+          const data = await startBotGame(table.id)
+          startDealing(
+            data.game._id,
+            Math.max(
+              0,
+              (
+                data.game.participants?.length ??
+                (data.seats?.length ?? 1) + (table.bots ?? 0)
+              ) - 1
+            )
+          );
           setGameId(data.game._id);
           applyServerGame(data.game);
           setPlayers(data.seats ?? []);
@@ -250,7 +302,7 @@ async function fetchMyHand(id: string) {
       }
   }
   function toggleCard(index: number) {
-   if (complete || spectating || game?.round !== 'drawing') {
+   if (complete || spectating || dealing || game?.round !== 'drawing') {
         return;
     }
 
@@ -262,7 +314,7 @@ async function fetchMyHand(id: string) {
   }
 
   function draw() {
-    if (!myTurn || busy || selected.length === 0) return;
+    if (!myTurn || busy || dealing || selected.length === 0) return;
     void sendToGame('draw', { discard: selected });
 }
 
@@ -318,6 +370,14 @@ useEffect(() => {
       console.log('Game started:', data.gameId);
 
       setGameId(data.gameId);
+      startDealing(
+        data.gameId,
+        Math.max(
+          0,
+          (data.game.participants?.length ?? 1) -
+            (spectating ? 0 : 1)
+        )
+      );
       setGame(data.game);
       setGameStarted(true);
 
@@ -372,6 +432,7 @@ useEffect(() => {
 }, [table.id, spectating]);
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#090a0c' }}>
+     
       <div className="pointer-events-none fixed inset-0" style={{ background: 'radial-gradient(ellipse 70% 55% at 50% 45%, rgba(90,10,10,0.3), transparent 72%)' }} />
       <header className="relative z-40 flex items-center justify-between border-b px-4 py-3 sm:px-6" style={{ background: 'rgba(10,10,11,0.9)', borderColor: '#222430', backdropFilter: 'blur(12px)' }}>
         <div className="flex items-center gap-4">
@@ -425,6 +486,19 @@ useEffect(() => {
           </div>
 
           <div className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]" style={{ background: '#111318', borderColor: '#292c35' }}>
+            {/* Step 1: Shuffle cards */}
+              {dealing && shuffling && (
+                <ShuffleAnimation />
+              )}
+
+              {/* Step 2: Deal cards after shuffling */}
+              {dealing && !shuffling && (
+                <DealingAnimation
+                  step={dealStep}
+                  opponents={dealOpponentCount}
+                  spectating={spectating}
+                />
+              )}
             <div className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]" style={{ background: 'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)', borderColor: '#160607', boxShadow: 'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909' }}>
               <div className="absolute inset-4 rounded-[48%] border" style={{ borderColor: 'rgba(232,228,220,0.08)' }} />
               
@@ -571,7 +645,8 @@ useEffect(() => {
       dealer={false}
       active={String(game!.currentTurn) === String(player.refId)}
       position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
-      showCards={!player.folded}
+      showCards={!player.folded &&(!dealing || dealtToOpponent(index) > 0)}
+    cardCount={dealtToOpponent(index)}
       blindLabel={
         isSmallBlind
           ? 'Small Blind (SB)'
@@ -592,7 +667,7 @@ useEffect(() => {
 })}
 
 
-            {!serverMode && otherPlayers.map((player, index) => {
+  {!serverMode && otherPlayers.map((player, index) => {
     const isSmallBlind =
         game?.smallBlindPlayerId === String(player.refId);
 
@@ -613,7 +688,11 @@ useEffect(() => {
                 dealer={index === 0}
                 active={game?.currentTurn === String(player.refId)}
                 position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
-                showCards={gameStarted}
+                showCards={
+                  gameStarted &&
+                  (!dealing || dealtToOpponent(index) > 0)
+                }
+                cardCount={dealtToOpponent(index)}
                 blindLabel={
                     isSmallBlind
                         ? 'Small Blind (SB)'
@@ -659,10 +738,15 @@ useEffect(() => {
               />
               <div className="relative z-10 mb-2 flex items-end justify-center -space-x-1 sm:space-x-1">
                 {spectating ? (
-                  gameStarted ? <CardBacks count={5} /> : null
+                  gameStarted && !dealing ? <CardBacks count={5} /> : null
                 ) : gameStarted && hand.length > 0 ? (
-                   hand.map((card, index) => (
-                  <PlayingCard key={`${card.rank}${card.suit}${index}`} card={card} selected={selected.includes(index)} onClick={() => toggleCard(index)} />
+                  hand.slice(0, dealtToMe).map((card, index) => (
+                  <FlippingPlayingCard
+                    key={`${card.rank}${card.suit}${index}`}
+                    card={card}
+                    selected={selected.includes(index)}
+                    onClick={() => toggleCard(index)}
+                  />
                 ))
               ) : (
                 <p className="text-sm font-semibold" style={{ color: '#e8e4dc'}}>

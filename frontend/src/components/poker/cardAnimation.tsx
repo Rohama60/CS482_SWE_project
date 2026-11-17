@@ -1,7 +1,7 @@
 
 import { motion } from 'motion/react'
 import type { CardData } from '../../pokerApi'
-import { PlayingCard } from '../poker/PokerPrimitives'
+import { PlayingCard } from './PokerPrimitives'
 
 // Opponent positions around the poker table
 const SEAT_TARGETS = [
@@ -121,4 +121,55 @@ export function FlippingPlayingCard({
       />
     </motion.div>
   )
+}
+const cardBackStyle = {
+  background:
+    "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
+  border: "3px solid #eee9df",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+};
+
+export function ShuffleAnimation() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-[35]"
+      aria-hidden="true"
+    >
+      <div className="absolute left-1/2 top-[43%] -translate-x-1/2 -translate-y-1/2">
+
+        {/* Left half of deck */}
+        <motion.div
+          className="absolute h-20 w-14 rounded-lg"
+          style={cardBackStyle}
+          animate={{
+            x: [0, -45, -45, 0],
+            y: [0, -12, 8, 0],
+            rotate: [0, -18, -8, 0],
+          }}
+          transition={{
+            duration: 0.8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+
+        {/* Right half of deck */}
+        <motion.div
+          className="absolute h-20 w-14 rounded-lg"
+          style={cardBackStyle}
+          animate={{
+            x: [0, 45, 45, 0],
+            y: [0, -12, 8, 0],
+            rotate: [0, 18, 8, 0],
+          }}
+          transition={{
+            duration: 0.8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+
+      </div>
+    </div>
+  );
 }
