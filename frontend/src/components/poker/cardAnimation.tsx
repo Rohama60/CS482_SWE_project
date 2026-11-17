@@ -263,16 +263,29 @@ export function ShuffleAnimation() {
   );
 }
 
+
+
+
 type DrawExchangeAnimationProps = {
   phase: "discard" | "receive";
   indexes: number[];
+  opponentIndex?: number;
 };
 
 export function DrawExchangeAnimation({
   phase,
   indexes,
+  opponentIndex,
 }: DrawExchangeAnimationProps) {
   const discarding = phase === "discard";
+
+  // Determine whether we're animating our own hand
+  // or another player's hand.
+  const isOpponent = opponentIndex !== undefined;
+
+  const seat = isOpponent
+    ? SEAT_TARGETS[opponentIndex % SEAT_TARGETS.length]
+    : null;
 
   return (
     <div
@@ -282,8 +295,13 @@ export function DrawExchangeAnimation({
       aria-hidden="true"
     >
       {indexes.map((slot, index) => {
-        // Approximate position of this card in your hand
-        const handX = `calc(50% + ${(slot - 2) * 36}px)`;
+        const handX = isOpponent
+          ? seat!.left
+          : `calc(50% + ${(slot - 2) * 36}px)`;
+
+        const handY = isOpponent
+          ? seat!.top
+          : "91%";
 
         return (
           <motion.div
@@ -295,19 +313,19 @@ export function DrawExchangeAnimation({
             }}
             initial={{
               left: discarding ? handX : "35%",
-              top: discarding ? "91%" : "42%",
+              top: discarding ? handY : "42%",
               x: "-50%",
               y: "-50%",
-              rotate: discarding ? 0 : -8,
+              rotate: 0,
               scale: 0.8,
             }}
             animate={{
               left: discarding ? "35%" : handX,
-              top: discarding ? "42%" : "91%",
+              top: discarding ? "42%" : handY,
               x: "-50%",
               y: "-50%",
               rotate: 0,
-              scale: discarding ? 0.75 : 1,
+              scale: 0.8,
             }}
             transition={{
               duration: 0.42,
@@ -317,8 +335,8 @@ export function DrawExchangeAnimation({
           >
             <div
               style={{
-                width: "100%",
-                height: "100%",
+                width: 40,
+                height: 56,
                 background:
                   "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
                 border: "2px solid #eee9df",
@@ -331,3 +349,4 @@ export function DrawExchangeAnimation({
     </div>
   );
 }
+

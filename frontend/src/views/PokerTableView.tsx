@@ -41,6 +41,15 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   indexes: number[];
 } | null>(null);
   const drawInProgress = useRef(false);
+  const [opponentDrawAnimation, setOpponentDrawAnimation] = useState<{
+  opponentIndex: number;
+  count: number;
+  phase: "discard" | "receive";
+} | null>(null);
+
+const opponentDrawTimers = useRef<number[]>([]);
+const lastOpponentDrawKey = useRef<string | null>(null);
+const viewerRefId = useRef<string | null>(null);
   const [hand, setHand] = useState<CardData[]>([])
   const [gameStarted, setGameStarted] = useState(false)
     // Card dealing animation state
@@ -88,6 +97,7 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
         ? player.displayName === session?.user?.name
         : player.refId === getGuest()?.id
 );
+viewerRefId.current = currentPlayer?.refId ?? null;
 
 const otherPlayers = players.filter(player =>
     player.refId !== currentPlayer?.refId
@@ -423,7 +433,7 @@ async function draw() {
       phase: "receive",
       indexes: discardedIndexes,
     });
-    
+
     await new Promise(resolve =>
       window.setTimeout(resolve, animationDuration)
     );
@@ -521,11 +531,79 @@ useEffect(() => {
 
   // Bots and other players move on the server: reload our private view
     
-    const handleGameUpdated = (data: { gameId: string }) => {
-      if (!spectating && !drawInProgress.current) {
-        void refreshGame(data.gameId);
+      
+  const handleGameUpdated = (data: {
+    gameId: string;
+    game?: GameState;
+    handNumber?: number;
+  }) => {
+    const action = data.game?.lastAction;
+
+    // Detect a draw performed by another player or bot
+    if (
+      action?.type === "draw" &&
+      action.amount > 0 &&
+      data.game?.participants &&
+      String(action.playerId) !==
+        String(viewerRefId.current)
+    ) {
+      const key = `${data.gameId}-${data.handNumber ?? ""}-${action.playerId}-${action.type}-${action.amount}`;
+      // Prevent animating the same draw more than once
+      if (lastOpponentDrawKey.current !== key) {
+        lastOpponentDrawKey.current = key;
+
+        // Match the exact order used by opponents.map(...)
+        const visibleOpponents = data.game.participants.filter(
+          player =>
+            spectating ||
+            String(player.refId) !==
+              String(viewerRefId.current)
+        );
+
+        const opponentIndex = visibleOpponents.findIndex(
+          player =>
+            String(player.refId) === String(action.playerId)
+        );
+
+        if (opponentIndex >= 0) {
+          opponentDrawTimers.current.forEach(window.clearTimeout);
+          opponentDrawTimers.current = [];
+
+          setOpponentDrawAnimation({
+            opponentIndex,
+            count: action.amount,
+            phase: "discard",
+          });
+
+          const phaseDuration =
+            420 + (action.amount - 1) * 160 + 80;
+
+          const receiveTimer = window.setTimeout(() => {
+            setOpponentDrawAnimation({
+              opponentIndex,
+              count: action.amount,
+              phase: "receive",
+            });
+          }, phaseDuration);
+
+          const finishTimer = window.setTimeout(() => {
+            setOpponentDrawAnimation(null);
+          }, phaseDuration * 2);
+
+          opponentDrawTimers.current = [
+            receiveTimer,
+            finishTimer,
+          ];
+        }
       }
-    };
+    }
+
+    // Keep syncing game state unless our own draw is animating
+    if (!spectating && !drawInProgress.current) {
+      void refreshGame(data.gameId);
+    }
+  };
+
 
     socket.on('game-updated', handleGameUpdated);
 
@@ -550,6 +628,10 @@ useEffect(() => {
 
     return () => {
         active = false;
+
+    // Clear any unfinished opponent draw animations
+        opponentDrawTimers.current.forEach(window.clearTimeout);
+        opponentDrawTimers.current = [];
 
         socket.off('table-updated', handleTableUpdated);
         socket.off('game-started', handleGameStarted);
@@ -697,6 +779,17 @@ useEffect(() => {
       <DrawExchangeAnimation
         phase={drawAnimation.phase}
         indexes={drawAnimation.indexes}
+      />
+    )}
+    {/* Animate other players' discarded and replacement cards */}
+    {opponentDrawAnimation && (
+      <DrawExchangeAnimation
+        phase={opponentDrawAnimation.phase}
+        indexes={Array.from(
+          { length: opponentDrawAnimation.count },
+          (_, index) => index
+        )}
+        opponentIndex={opponentDrawAnimation.opponentIndex}
       />
     )}
 
