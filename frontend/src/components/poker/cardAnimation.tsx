@@ -21,7 +21,7 @@ export function DealingAnimation({
   opponents: number
   spectating: boolean
 }) {
-  if (step < 0) return null
+  
 
   const total = opponents + (spectating ? 0 : 1)
   if (!total) return null
@@ -39,18 +39,20 @@ export function DealingAnimation({
       className="pointer-events-none absolute inset-0 z-[35]"
       aria-hidden="true"
     >
-      {/* Deck positioned near the middle of the table */}
-      <div className="absolute left-[35%] top-[48%] -translate-x-1/2 -translate-y-1/2">
+     {/* Remaining deck next to the pot */}
         <div
-          className="h-14 w-10 rounded-md border-[3px] border-[#eee9df] shadow-xl"
+          className="absolute"
           style={{
-            background:
-              'repeating-linear-gradient(45deg, #6b1010 0 3px, #9d2a23 3px 6px)',
+            left: "35%",
+            top: "48%",
+            transform: "translate(-50%, -50%)",
           }}
-        />
-      </div>
+        >
+          <DeckStack count={Math.max(0, 52 - Math.max(0, step + 1))} />
+        </div>
 
       {/* Card moves from the deck to a player */}
+     {step >= 0 && ( 
       <motion.div
         key={step}
         className="absolute h-14 w-10 rounded-md border-[3px] border-[#eee9df] shadow-2xl"
@@ -77,6 +79,7 @@ export function DealingAnimation({
           ease: 'easeOut',
         }}
       />
+     )}
     </div>
   )
 }
@@ -127,8 +130,9 @@ export function FlippingPlayingCard({
 const cardBackStyle = {
   background:
     "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
-  border: "3px solid #eee9df",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+  border: "2px solid #eee9df",
+  borderRadius: "5px",
+  boxShadow: "0 3px 8px rgba(0,0,0,0.6)",
 };
 function DeckStack({ count = 52 }: { count?: number }) {
   return (
@@ -146,54 +150,77 @@ function DeckStack({ count = 52 }: { count?: number }) {
     </div>
   );
 }
+
 export function ShuffleAnimation() {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[35]"
       aria-hidden="true"
     >
-      {/* Position relative to the poker table */}
       <div
         className="absolute"
         style={{
           left: "35%",
           top: "48%",
-          width: "56px",
-          height: "80px",
+          width: 40,
+          height: 56,
           transform: "translate(-50%, -50%)",
+          perspective: 900,
         }}
       >
-        {/* Left half */}
-        <motion.div
-          className="absolute inset-0 rounded-lg"
-          style={cardBackStyle}
-          animate={{
-            x: [0, -45, -45, 0],
-            y: [0, -12, 8, 0],
-            rotate: [0, -18, -8, 0],
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+        {Array.from({ length: 52 }, (_, index) => {
+          const leftHalf = index < 26;
+          const cardIndex = index % 26;
+          const direction = leftHalf ? -1 : 1;
 
-        {/* Right half */}
-        <motion.div
-          className="absolute inset-0 rounded-lg"
-          style={cardBackStyle}
-          animate={{
-            x: [0, 45, 45, 0],
-            y: [0, -12, 8, 0],
-            rotate: [0, 18, 8, 0],
-          }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
+          // Slightly stagger individual cards in each pile
+          const spread = cardIndex * 2;
+
+          return (
+            <motion.div
+              key={index}
+              className="absolute inset-0 rounded-md"
+              style={{
+                ...cardBackStyle,
+                zIndex: index,
+                transformOrigin: "center bottom",
+              }}
+              initial={{
+                x: 0,
+                y: -index * 0.12,
+                rotate: 0,
+              }}
+              animate={{
+                // Split, fan out, interleave, stack
+                x: [
+                  0,
+                  direction * (32 + spread),
+                  direction * (18 + spread * 0.4),
+                  0,
+                ],
+                y: [
+                  -index * 0.12,
+                  -cardIndex * 1.3,
+                  -cardIndex * 1.6,
+                  -index * 0.12,
+                ],
+                rotate: [
+                  0,
+                  direction * (8 + cardIndex * 0.7),
+                  direction * (4 + cardIndex * 0.3),
+                  0,
+                ],
+                rotateX: [0, 8, 18, 0],
+              }}
+              transition={{
+                duration: 2.3,
+                delay: cardIndex * 0.012,
+                times: [0, 0.32, 0.7, 1],
+                ease: "easeInOut",
+              }}
+            />
+          );
+        })}
       </div>
     </div>
   );
