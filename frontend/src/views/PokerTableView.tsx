@@ -7,7 +7,7 @@ import {authClient } from "../AuthClient.ts";
 import { BetChips, CardBacks, PlayerSeat, PotChips } from "../components/poker/PokerPrimitives";
 import { PLAYER_POSITIONS, STAKE_LABELS } from "../components/poker/pokerConstants";
 import { useDealingTimer } from "../hooks/useDealingTimer.ts";
-import { DealingAnimation, FlippingPlayingCard, ShuffleAnimation } from "../components/poker/cardAnimation.tsx";
+import { DealingAnimation, FlippingPlayingCard, ShuffleAnimation, DeckStack } from "../components/poker/cardAnimation.tsx";
 import { getDealtToMe, getDealtToOpponent } from "../utils/dealingUtils.ts";
 import {
   getBotGame,
@@ -48,6 +48,22 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   const dealGameId = useRef<string | null>(null);
   const dealtToMe = getDealtToMe(dealing,dealStep,dealOpponentCount);
   const dealtToOpponent = (index: number) =>getDealtToOpponent(dealing,dealStep,dealOpponentCount,spectating,index);
+  // Number of players receiving cards
+  const totalDealPlayers =
+    dealOpponentCount + (spectating ? 0 : 1);
+
+  // Number of cards already dealt
+  const cardsDealt = dealing
+    ? shuffling
+      ? 0
+      : Math.max(0, dealStep + 1)
+    : totalDealPlayers * 5;
+
+  // Number of cards remaining in the deck
+  const remainingDeckCards = Math.max(
+    0,
+    52 - cardsDealt
+  );
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
   const [chipBalance, setChipBalance] = useState<number | null>(null);
@@ -485,47 +501,86 @@ useEffect(() => {
             <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Hand #143</span>
           </div>
 
-          <div className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]" style={{ background: '#111318', borderColor: '#292c35' }}>
-            <div className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]" style={{ background: 'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)', borderColor: '#160607', boxShadow: 'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909' }}>
-              <div className="absolute inset-4 rounded-[48%] border" style={{ borderColor: 'rgba(232,228,220,0.08)' }} />
-              
-              
-              
-            {gameStarted && (
-            <>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <PotChips amount={game?.potSize ?? 0} />
+          
+          <div
+            className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]"
+            style={{
+              background: '#111318',
+              borderColor: '#292c35',
+            }}
+          >
+            {/* POKER TABLE FELT */}
+            <div
+              className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]"
+              style={{
+                background:
+                  'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)',
+                borderColor: '#160607',
+                boxShadow:
+                  'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909',
+              }}
+            >
+              <div
+                className="absolute inset-4 rounded-[48%] border"
+                style={{
+                  borderColor: 'rgba(232,228,220,0.08)',
+                }}
+              />
 
-                {serverMode && (
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: '#e8e4dc', opacity: 0.55 }}
-                  >
-                    {ROUND_LABELS[game!.round]}
-                    {game!.round === 'finished' && game!.resultText
-                      ? ` · ${game!.resultText}`
-                      : ''}
-                  </p>
-                )}
-              </div>
-            </>
-          )}              
-              
+              {/* POT CHIPS */}
+              {gameStarted && (
+                <>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <PotChips amount={game?.potSize ?? 0} />
+
+                    {serverMode && (
+                      <p
+                        className="mt-1 text-xs"
+                        style={{
+                          color: '#e8e4dc',
+                          opacity: 0.55,
+                        }}
+                      >
+                        {ROUND_LABELS[game!.round]}
+                        {game!.round === 'finished' && game!.resultText
+                          ? ` · ${game!.resultText}`
+                          : ''}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-                  {/* SHUFFLE ANIMATION */}
-              {dealing && shuffling && (
-                <ShuffleAnimation />
-              )}
 
-              {/* DEALING ANIMATION */}
-              {dealing && !shuffling && (
-                <DealingAnimation
-                  step={dealing ? dealStep : -1}
-                  opponents={dealOpponentCount}
-                  spectating={spectating}
-                  finished = {!dealing}
-                />
-              )}
+            {/* SHUFFLE THE DECK */}
+            {dealing && shuffling && (
+              <ShuffleAnimation />
+            )}
+
+            {/* KEEP THE REMAINING DECK BESIDE THE POT */}
+            {gameStarted && !shuffling && (
+              <div
+                className="pointer-events-none absolute z-[35]"
+                style={{
+                  left: '35%',
+                  top: '48%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                <DeckStack count={remainingDeckCards} />
+              </div>
+            )}
+
+            {/* FLYING CARDS DURING DEALING */}
+            {dealing && !shuffling && (
+              <DealingAnimation
+                step={dealStep}
+                opponents={dealOpponentCount}
+                spectating={spectating}
+              />
+            )}
+
+
             {!gameStarted && !spectating && (
                 <div
                   className="absolute left-1/2 top-[28%] z-30 w-[min(90%,24rem)] -translate-x-1/2 rounded-2xl border p-5 text-center shadow-2xl"

@@ -10,7 +10,7 @@ type DealingTimerProps = {
   setShuffling: (value: boolean) => void;
 };
 
-const SHUFFLE_DURATION = 4000;
+const SHUFFLE_DURATION = 3300;
 const CARD_INTERVAL = 340;
 
 export function useDealingTimer({

@@ -15,12 +15,11 @@ export function DealingAnimation({
   step,
   opponents,
   spectating,
-  finished = false,
+
 }: {
   step: number;
   opponents: number;
   spectating: boolean;
-  finished?: boolean;
 }) {
   const total = opponents + (spectating ? 0 : 1);
 
@@ -33,29 +32,13 @@ export function DealingAnimation({
       ? SEAT_TARGETS[target % SEAT_TARGETS.length]
       : { left: "50%", top: "91%" };
 
-  const cardsDealt = finished
-    ? total * 5
-    : step < 0
-      ? 0
-      : Math.min(step + 1, total * 5);
-
-  const remainingCards = Math.max(0, 52 - cardsDealt);
+  
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[35]"
       aria-hidden="true"
     >
-     {/* Remaining deck next to the pot */}
-        <div
-          className="absolute"
-          style={{
-            left: "35%",
-            top: "48%",
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <DeckStack count={remainingCards} />
-        </div>
+     
 
       {/* Card moves from the deck to a player */}
      {step >= 0 && ( 
@@ -157,7 +140,7 @@ const cardBackStyle = {
 };
 
 
-function DeckStack({ count = 52 }: { count?: number }) {
+export function DeckStack({ count = 52 }: { count?: number }) {
   if (count <= 0) return null;
 
   const thickness = Math.min(7, count * 0.12);
@@ -203,60 +186,63 @@ export function ShuffleAnimation() {
           width: 40,
           height: 56,
           transform: "translate(-50%, -50%)",
-          perspective: 900,
         }}
       >
         {Array.from({ length: 52 }, (_, index) => {
-          const leftHalf = index < 26;
-          const cardIndex = index % 26;
-          const direction = leftHalf ? -1 : 1;
+          // Spread cards around the deck in different directions
+          const angle = index * 2.39996;
+          const distance = 12 + Math.sqrt(index / 51) * 58;
 
-          // Slightly stagger individual cards in each pile
-          const spread = cardIndex * 2;
+          const scatterX = Math.cos(angle) * distance;
+          const scatterY = Math.sin(angle) * distance * 0.55;
+
+          // Each card crosses toward another position
+          const mixX = Math.cos(angle + Math.PI * 0.8) * distance * 0.65;
+          const mixY = Math.sin(angle + Math.PI * 0.8) * distance * 0.4;
+
+          const rotation = ((index * 17) % 50) - 25;
 
           return (
             <motion.div
               key={index}
-              className="absolute inset-0 rounded-md"
+              className="absolute inset-0"
               style={{
-                ...cardBackStyle,
                 zIndex: index,
-                transformOrigin: "center bottom",
               }}
               initial={{
                 x: 0,
-                y: -index * 0.12,
+                y: 0,
                 rotate: 0,
               }}
               animate={{
-                // Split, fan out, interleave, stack
-                x: [
-                  0,
-                  direction * (32 + spread),
-                  direction * (18 + spread * 0.4),
-                  0,
-                ],
-                y: [
-                  -index * 0.12,
-                  -cardIndex * 1.3,
-                  -cardIndex * 1.6,
-                  -index * 0.12,
-                ],
-                rotate: [
-                  0,
-                  direction * (8 + cardIndex * 0.7),
-                  direction * (4 + cardIndex * 0.3),
-                  0,
-                ],
-                rotateX: [0, 8, 18, 0],
+                x: [0, scatterX, mixX, 0],
+                y: [0, scatterY, mixY, 0],
+                rotate: [0, rotation, -rotation * 0.5, 0],
               }}
               transition={{
-                duration: 2.3,
-                delay: cardIndex * 0.012,
-                times: [0, 0.32, 0.7, 1],
+                duration: 2.8,
+                delay: (index % 13) * 0.018,
+                times: [0, 0.35, 0.7, 1],
                 ease: "easeInOut",
               }}
-            />
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 56,
+                  boxSizing: "border-box",
+
+                  // Same red design as the dealt cards
+                  background:
+                    "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
+                  border: "2px solid #eee9df",
+                  borderRadius: 5,
+
+                  // No 3D-looking card shadows
+                  boxShadow: "none",
+                }}
+              />
+            </motion.div>
           );
         })}
       </div>
