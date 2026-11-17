@@ -262,3 +262,72 @@ export function ShuffleAnimation() {
     </div>
   );
 }
+
+type DrawExchangeAnimationProps = {
+  phase: "discard" | "receive";
+  indexes: number[];
+};
+
+export function DrawExchangeAnimation({
+  phase,
+  indexes,
+}: DrawExchangeAnimationProps) {
+  const discarding = phase === "discard";
+
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 ${
+        discarding ? "z-[34]" : "z-[36]"
+      }`}
+      aria-hidden="true"
+    >
+      {indexes.map((slot, index) => {
+        // Approximate position of this card in your hand
+        const handX = `calc(50% + ${(slot - 2) * 36}px)`;
+
+        return (
+          <motion.div
+            key={`${phase}-${slot}`}
+            className="absolute"
+            style={{
+              width: 40,
+              height: 56,
+            }}
+            initial={{
+              left: discarding ? handX : "35%",
+              top: discarding ? "91%" : "42%",
+              x: "-50%",
+              y: "-50%",
+              rotate: discarding ? 0 : -8,
+              scale: 0.8,
+            }}
+            animate={{
+              left: discarding ? "35%" : handX,
+              top: discarding ? "42%" : "91%",
+              x: "-50%",
+              y: "-50%",
+              rotate: 0,
+              scale: discarding ? 0.75 : 1,
+            }}
+            transition={{
+              duration: 0.42,
+              delay: index * 0.16,
+              ease: "easeInOut",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background:
+                  "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
+                border: "2px solid #eee9df",
+                borderRadius: 5,
+              }}
+            />
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}

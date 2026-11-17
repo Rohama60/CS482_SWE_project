@@ -223,51 +223,104 @@ function settleRoundEnd(state) {
 }
 
 /** The player whose turn it is replaces the cards at `discardIndexes` (0-4) from the deck. */
+
 export function applyDraw(state, refId, discardIndexes) {
-    if (state.round !== 'drawing') throw new GameRuleError('Drawing is not open right now');
-    const player = getPlayer(state, refId);
-    if (state.currentTurn !== refId) throw new GameRuleError('It is not your turn');
-
-    const indexes = Array.isArray(discardIndexes) ? discardIndexes : [];
-    const valid = indexes.every(i => Number.isInteger(i) && i >= 0 && i < 5);
-    if (!valid || new Set(indexes).size !== indexes.length) throw new GameRuleError('Invalid cards selected');
-    if (indexes.length > MAX_DISCARDS) throw new GameRuleError(`You can replace at most ${MAX_DISCARDS} cards`);
-
-    const hand = state.hands[refId];
-    if (indexes.length > 0) {
-        // Draw first, so a card you throw away cannot come straight back to you
-        if (state.deck.length < indexes.length) {
-            state.deck = [...shuffleDeck(state.discards), ...state.deck];
-            state.discards = [];
-        }
-        if (state.deck.length < indexes.length) throw new GameRuleError('Not enough cards left in the deck');
-        const replacements = indexes.map(() => state.deck.pop());
-        indexes.forEach((handIndex, i) => {
-            state.discards.push(hand[handIndex]);
-            hand[handIndex] = replacements[i];
-        });
+    if (state.round !== 'drawing') {
+        throw new GameRuleError('Drawing is not open right now');
     }
 
-    player.drawn = true;
-    state.lastAction = { playerId: refId, type: 'draw', amount: indexes.length };
+    const player = getPlayer(state, refId);
 
-    const next = firstFrom(state, indexOfPlayer(state, refId) + 1, p => isLive(p) && !p.drawn);
+    if (state.currentTurn !== refId) {
+        throw new GameRuleError('It is not your turn');
+    }
+
+    const indexes = Array.isArray(discardIndexes)
+        ? discardIndexes
+        : [];
+
+    const valid = indexes.every(
+        i => Number.isInteger(i) && i >= 0 && i < 5
+    );
+
+    if (!valid || new Set(indexes).size !== indexes.length) {
+        throw new GameRuleError('Invalid cards selected');
+    }
+
+    if (indexes.length > MAX_DISCARDS) {
+        throw new GameRuleError(
+            `You can replace at most ${MAX_DISCARDS} cards`
+        );
+    }
+
+    const hand = state.hands[refId];
+
+    if (indexes.length > 0) {
+
+        // Make sure enough replacement cards are available
+        if (state.deck.length < indexes.length) {
+            throw new GameRuleError(
+                'Not enough cards left in the deck'
+            );
+        }
+
+        // 1. Save the cards the player is discarding
+        const discardedCards = indexes.map(
+            handIndex => hand[handIndex]
+        );
+
+        // 2. Draw replacement cards from the top of the deck
+        const replacements = indexes.map(
+            () => state.deck.pop()
+        );
+
+        // 3. Put replacement cards into the player's hand
+        indexes.forEach((handIndex, i) => {
+            hand[handIndex] = replacements[i];
+        });
+
+        // 4. Return discarded cards to the BOTTOM of the deck
+        // The deck draws with pop(), so unshift() inserts
+        // cards at the opposite end.
+        state.deck.unshift(...discardedCards);
+    }
+
+    // Mark the player as finished drawing
+    player.drawn = true;
+
+    state.lastAction = {
+        playerId: refId,
+        type: 'draw',
+        amount: indexes.length
+    };
+
+    // Find the next player who still needs to draw
+    const next = firstFrom(
+        state,
+        indexOfPlayer(state, refId) + 1,
+        p => isLive(p) && !p.drawn
+    );
+
     if (next) {
         state.currentTurn = next.refId;
         return state;
     }
-
-    // Everyone has drawn: second betting round, starting from the small blind seat
+    // Everyone has drawn: begin the second betting round
     state.round = 'betting2';
     state.playerBets = {};
     state.currentBet = 0;
     state.raisesThisRound = 0;
-    for (const p of state.participants) p.acted = false;
+
+    for (const p of state.participants) {
+        p.acted = false;
+    }
+
     const first = firstFrom(state, 0, canAct);
+
     if (first && state.participants.filter(canAct).length > 1) {
         state.currentTurn = first.refId;
-    } else {
-        // Nobody (or only one player) can still bet: straight to the showdown
+    } 
+    else {
         showdown(state);
     }
     return state;

@@ -7,7 +7,7 @@ import {authClient } from "../AuthClient.ts";
 import { BetChips, CardBacks, PlayerSeat, PotChips } from "../components/poker/PokerPrimitives";
 import { PLAYER_POSITIONS, STAKE_LABELS } from "../components/poker/pokerConstants";
 import { useDealingTimer } from "../hooks/useDealingTimer.ts";
-import { DealingAnimation, FlippingPlayingCard, ShuffleAnimation, DeckStack } from "../components/poker/cardAnimation.tsx";
+import { DealingAnimation, FlippingPlayingCard, ShuffleAnimation, DeckStack, DrawExchangeAnimation } from "../components/poker/cardAnimation.tsx";
 import { getDealtToMe, getDealtToOpponent } from "../utils/dealingUtils.ts";
 import {
   getBotGame,
@@ -36,6 +36,11 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([])
+  const [drawAnimation, setDrawAnimation] = useState<{
+  phase: "discard" | "receive";
+  indexes: number[];
+} | null>(null);
+  const drawInProgress = useRef(false);
   const [hand, setHand] = useState<CardData[]>([])
   const [gameStarted, setGameStarted] = useState(false)
     // Card dealing animation state
@@ -63,7 +68,7 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   // Number of cards remaining in the deck
   const remainingDeckCards = Math.max(
     0,
-    52 - cardsDealt
+    52 - cardsDealt 
   );
   const [isStarting, setIsStarting] = useState(false)
   const [gameId, setGameId] = useState<string | null>(null)
@@ -253,14 +258,21 @@ function applyServerGame(g: GameState) {
   setSelected([]);
 }
 
+
 async function refreshGame(id: string) {
+  // Don't start a refresh during our draw animation
+  if (drawInProgress.current) return;
   try {
-    const data = await getBotGame(id)
-    applyServerGame(data.game)
+    const data = await getBotGame(id);
+
+    // A draw may have started while the request was running
+    if (drawInProgress.current) return;
+    applyServerGame(data.game);
   } catch (e) {
-    console.error('Could not refresh game', e);
+    console.error("Could not refresh game", e);
   }
 }
+
 
 async function sendToGame(path: 'action' | 'draw', body: object) {
   if (!gameId || busy || !actionsUnlocked) return;
@@ -356,9 +368,10 @@ async function fetchMyHand(id: string) {
       }
   }
   function toggleCard(index: number) {
-   if (complete || spectating || dealing || game?.round !== 'drawing') {
-        return;
-    }
+   if (complete || spectating || dealing || busy || !actionsUnlocked || drawAnimation !== null || game?.round !== 'drawing'
+   ) {
+  return;
+}
 
     setSelected(current =>
         current.includes(index)
@@ -367,10 +380,71 @@ async function fetchMyHand(id: string) {
     );
   }
 
-  function draw() {
-    if (!myTurn || busy || dealing || selected.length === 0) return;
-    void sendToGame('draw', { discard: selected });
+  
+async function draw() {
+  if (
+    !myTurn ||
+    busy ||
+    !actionsUnlocked ||
+    selected.length === 0 ||
+    !gameId
+  ) {
+    return;
+  }
+
+  const discardedIndexes = [...selected];
+
+  const animationDuration =
+    420 + (discardedIndexes.length - 1) * 160;
+  drawInProgress.current = true;
+  setBusy(true);
+  setError("");
+
+  try {
+    // 1. Move selected cards underneath the deck
+    setDrawAnimation({
+      phase: "discard",
+      indexes: discardedIndexes,
+    });
+
+    await new Promise(resolve =>
+      window.setTimeout(resolve, animationDuration)
+    );
+
+    // 2. Ask the backend for replacement cards
+    const data = await sendBotAction(
+      gameId,
+      "draw",
+      { discard: discardedIndexes }
+    );
+
+    // 3. Deal replacement cards from the deck
+    setDrawAnimation({
+      phase: "receive",
+      indexes: discardedIndexes,
+    });
+    
+    await new Promise(resolve =>
+      window.setTimeout(resolve, animationDuration)
+    );
+
+    // 4. Reveal the updated hand
+    applyServerGame(data.game);
+    await fetchMyChips();
+
+  } catch (error) {
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Could not draw replacement cards"
+    );
+  } finally {
+    setDrawAnimation(null);
+    drawInProgress.current = false;
+    setBusy(false);
+  }
 }
+
 
   async function handleLeaveTable() {
     console.log('1. Leave button')
@@ -447,8 +521,10 @@ useEffect(() => {
 
   // Bots and other players move on the server: reload our private view
     
-    const handleGameUpdated = (data: { gameId: string;}) => {
-      if (!spectating) void refreshGame(data.gameId);
+    const handleGameUpdated = (data: { gameId: string }) => {
+      if (!spectating && !drawInProgress.current) {
+        void refreshGame(data.gameId);
+      }
     };
 
     socket.on('game-updated', handleGameUpdated);
@@ -616,6 +692,13 @@ useEffect(() => {
       spectating={spectating}
     />
   )}
+  {/* DISCARD SELECTED CARDS AND DEAL REPLACEMENTS */}
+    {drawAnimation && (
+      <DrawExchangeAnimation
+        phase={drawAnimation.phase}
+        indexes={drawAnimation.indexes}
+      />
+    )}
 
   {/* YOUR EXISTING READY BANNER AND PLAYER SEATS FOLLOW HERE */}
 
@@ -836,14 +919,25 @@ useEffect(() => {
                 {spectating ? (
                   gameStarted && !dealing ? <CardBacks count={5} /> : null
                 ) : gameStarted && hand.length > 0 ? (
+                  
                   hand.slice(0, dealtToMe).map((card, index) => (
-                  <FlippingPlayingCard
-                    key={`${card.rank}${card.suit}${index}`}
-                    card={card}
-                    selected={selected.includes(index)}
-                    onClick={() => toggleCard(index)}
-                  />
-                ))
+                    <div
+                      key={`${card.rank}${card.suit}${index}`}
+                      style={{
+                        opacity:
+                          drawAnimation?.indexes.includes(index)
+                            ? 0
+                            : 1,
+                      }}
+                    >
+                      <FlippingPlayingCard
+                        card={card}
+                        selected={selected.includes(index)}
+                        onClick={() => toggleCard(index)}
+                      />
+                    </div>
+                  ))
+
               ) : (
                 <p className="text-sm font-semibold" style={{ color: '#e8e4dc'}}>
                   Waiting for cards...</p>
