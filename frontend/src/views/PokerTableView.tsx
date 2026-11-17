@@ -502,83 +502,85 @@ useEffect(() => {
           </div>
 
           
-          <div
-            className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]"
+<div
+  className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]"
+  style={{
+    background: '#111318',
+    borderColor: '#292c35',
+  }}
+>
+  {/* POKER TABLE FELT */}
+  <div
+    className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]"
+    style={{
+      background:
+        'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)',
+      borderColor: '#160607',
+      boxShadow:
+        'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909',
+    }}
+  >
+    <div
+      className="absolute inset-4 rounded-[48%] border"
+      style={{
+        borderColor: 'rgba(232,228,220,0.08)',
+      }}
+    />
+
+    {/* POT ONLY APPEARS AFTER DEALING FINISHES */}
+    {gameStarted && !dealing && (
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <PotChips amount={game?.potSize ?? 0} />
+
+        {serverMode && (
+          <p
+            className="mt-1 text-xs"
             style={{
-              background: '#111318',
-              borderColor: '#292c35',
+              color: '#e8e4dc',
+              opacity: 0.55,
             }}
           >
-            {/* POKER TABLE FELT */}
-            <div
-              className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]"
-              style={{
-                background:
-                  'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)',
-                borderColor: '#160607',
-                boxShadow:
-                  'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909',
-              }}
-            >
-              <div
-                className="absolute inset-4 rounded-[48%] border"
-                style={{
-                  borderColor: 'rgba(232,228,220,0.08)',
-                }}
-              />
+            {ROUND_LABELS[game!.round]}
+            {game!.round === 'finished' && game!.resultText
+              ? ` · ${game!.resultText}`
+              : ''}
+          </p>
+        )}
+      </div>
+    )}
+  </div>
 
-              {/* POT CHIPS */}
-              {gameStarted && (
-                <>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <PotChips amount={game?.potSize ?? 0} />
+  {/* SHUFFLE IN CENTER, THEN SLIDE LEFT */}
+  {dealing && shuffling && (
+    <ShuffleAnimation />
+  )}
 
-                    {serverMode && (
-                      <p
-                        className="mt-1 text-xs"
-                        style={{
-                          color: '#e8e4dc',
-                          opacity: 0.55,
-                        }}
-                      >
-                        {ROUND_LABELS[game!.round]}
-                        {game!.round === 'finished' && game!.resultText
-                          ? ` · ${game!.resultText}`
-                          : ''}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+ {/* Deck stays in center during dealing, then slides left */}
+{gameStarted && !shuffling && (
+  <div
+    className="pointer-events-none absolute z-[35]"
+    style={{
+      left: dealing ? "50%" : "35%",
+      top: "42%",
+      transform: "translate(-50%, -50%)",
+      transition: "left 0.8s ease-in-out",
+    }}
+  >
+    <DeckStack count={remainingDeckCards} />
+  </div>
+)}
 
-            {/* SHUFFLE THE DECK */}
-            {dealing && shuffling && (
-              <ShuffleAnimation />
-            )}
+  {/* DEAL CARDS TO PLAYERS */}
+  {dealing && !shuffling && (
+    <DealingAnimation
+      step={dealStep}
+      opponents={dealOpponentCount}
+      spectating={spectating}
+    />
+  )}
 
-            {/* KEEP THE REMAINING DECK BESIDE THE POT */}
-            {gameStarted && !shuffling && (
-              <div
-                className="pointer-events-none absolute z-[35]"
-                style={{
-                  left: '35%',
-                  top: '41%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              >
-                <DeckStack count={remainingDeckCards}   />
-              </div>
-            )}
+  {/* YOUR EXISTING READY BANNER AND PLAYER SEATS FOLLOW HERE */}
 
-            {/* FLYING CARDS DURING DEALING */}
-            {dealing && !shuffling && (
-              <DealingAnimation
-                step={dealStep}
-                opponents={dealOpponentCount}
-                spectating={spectating}
-              />
-            )}
 
 
             {!gameStarted && !spectating && (

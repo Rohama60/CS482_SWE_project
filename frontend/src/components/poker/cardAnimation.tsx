@@ -50,8 +50,8 @@ export function DealingAnimation({
           height: 56,
         }}
         initial={{
-          left: "35%",
-          top: "41%",
+          left: "50%",
+          top: "42%",
           x: "-50%",
           y: "-50%",
           rotate: 0,
@@ -183,33 +183,32 @@ export function ShuffleAnimation() {
       className="pointer-events-none absolute inset-0 z-[35]"
       aria-hidden="true"
     >
+        {/* Shuffle stays in the center of the table */}
       <div
         className="absolute"
         style={{
-          left: "35%",
-          top: "41%",
+          left: "50%",
+          top: "42%",
           width: 40,
           height: 56,
           transform: "translate(-50%, -50%)",
         }}
       >
         {Array.from({ length: 52 }, (_, index) => {
-          // Alternate cards between the two piles
           const leftPile = index % 2 === 0;
-
-          // 0 through 25 within each pile
           const pileIndex = Math.floor(index / 2);
 
-          // Piles move left and right
           const pileX = leftPile ? -65 : 65;
 
-          // Cards return one by one:
-          // left, right, left, right...
+          // Left card, right card, left card, right card...
           const returnDelay =
             splitDuration + index * cardInterval;
 
-          // Slight offset as the new deck builds
+          // Small offsets to make the new stack build naturally
           const stackY = -index * 0.10;
+
+          const totalDuration =
+            returnDelay + cardMoveDuration;
 
           return (
             <motion.div
@@ -234,14 +233,11 @@ export function ShuffleAnimation() {
                 rotate: 0,
               }}
               transition={{
-                duration:
-                  returnDelay + cardMoveDuration,
+                duration: totalDuration,
                 times: [
                   0,
-                  splitDuration /
-                    (returnDelay + cardMoveDuration),
-                  returnDelay /
-                    (returnDelay + cardMoveDuration),
+                  splitDuration / totalDuration,
+                  returnDelay / totalDuration,
                   1,
                 ],
                 ease: "easeInOut",
