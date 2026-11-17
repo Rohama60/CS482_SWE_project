@@ -43,6 +43,7 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   const [dealStep, setDealStep] = useState(-1);
   const [dealOpponentCount, setDealOpponentCount] = useState(0);
   const [shuffling, setShuffling] = useState(false);
+  const [actionsUnlocked, setActionsUnlocked] = useState(false);
 
   // Remember which game has already started its animation
   const dealGameId = useRef<string | null>(null);
@@ -135,6 +136,24 @@ useDealingTimer({
   setDealStep,
   setShuffling,
 });
+
+useEffect(() => {
+  // Lock player actions while the shuffle or deal is active
+  if (!gameStarted || dealing || shuffling) {
+    setActionsUnlocked(false);
+    return;
+  }
+
+  // Wait for the deck to finish sliding left
+  const timer = window.setTimeout(() => {
+    setActionsUnlocked(true);
+  }, 800);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [gameStarted, dealing, shuffling]);
+
 function handleReady() {
   if (spectating || host || !currentPlayer || myReady || readyPending) {
     return;
@@ -225,7 +244,7 @@ async function refreshGame(id: string) {
 }
 
 async function sendToGame(path: 'action' | 'draw', body: object) {
-  if (!gameId || busy) return;
+  if (!gameId || busy || !actionsUnlocked) return;
   setBusy(true);
   setError('');
   try {
@@ -890,10 +909,31 @@ useEffect(() => {
                 >
                   {seatOpen ? 'Take a Seat' : 'No seats open'}
                 </button>
+              
               </div>
+            </div>
+          ) : !actionsUnlocked ? (
+            <div
+              className="mt-3 flex items-center justify-center rounded-2xl border p-5"
+              style={{
+                background: "#14161b",
+                borderColor: "#292c35",
+              }}
+            >
+              <p
+                className="text-sm font-semibold"
+                style={{ color: "#e8e4dc" }}
+              >
+                {shuffling
+                  ? "Shuffling cards..."
+                  : dealing
+                    ? "Dealing cards..."
+                    : "Preparing your turn..."}
+              </p>
             </div>
           ) : serverMode ? (
             <div className="mt-3 flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between" style={{ background: '#14161b', borderColor: '#292c35' }}>
+
             <div className="px-2">
               <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>{ROUND_LABELS[game!.round]}</p>
               <div className="text-sm font-semibold" style={{ color: game!.round === 'finished' ? '#4ade80' : '#e8e4dc' }}>
