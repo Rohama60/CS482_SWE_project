@@ -38,12 +38,13 @@ type HomeProps = {
     setView: (view: View) => void
     onSignUp: () => void
     onSignIn: () => void
+    onProfile: () => void
 
 }
 
 
 
-export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
+export default function Home({ setView, onSignUp, onSignIn, onProfile }: HomeProps) {
     const { data: session } = authClient.useSession();
 
     const [showDropdown, setShowDropdown] = useState(false)
@@ -160,6 +161,23 @@ export default function Home({ setView, onSignUp, onSignIn }: HomeProps) {
                         border: '1px solid #2a2d38'
                     }}
                     >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                            setShowProfileMenu(false)
+                            onProfile()
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                        style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                        }}
+                    >
+                        <span style={{ color: '#c0392b' }}>♙</span>
+                        Profile
+                    </button>
                     <button
                         type="button"
                         role="menuitem"

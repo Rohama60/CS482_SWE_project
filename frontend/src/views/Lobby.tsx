@@ -14,6 +14,7 @@ type LobbyProps = {
   onJoin: (table: PokerTableData) => void;
   onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
+  onProfile: () => void;
 };
 
 
@@ -25,7 +26,7 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
 
-export function Lobby({ onBack, onJoin, onSpectate, onSignUp }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile }: LobbyProps) {
  const { data: session, isPending, error: sessionError } = authClient.useSession()
   const isAuthenticated = Boolean(session?.user)
 
@@ -416,6 +417,23 @@ return (
                       border: '1px solid #2a2d38'
                     }}
                   >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        onProfile()
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                      }}
+                    >
+                      <span style={{ color: '#c0392b' }}>♙</span>
+                      Profile
+                    </button>
                     <button
                       type="button"
                       role="menuitem"
