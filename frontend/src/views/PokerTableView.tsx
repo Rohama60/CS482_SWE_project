@@ -486,19 +486,6 @@ useEffect(() => {
           </div>
 
           <div className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]" style={{ background: '#111318', borderColor: '#292c35' }}>
-            {/* Step 1: Shuffle cards */}
-              {dealing && shuffling && (
-                <ShuffleAnimation />
-              )}
-
-              {/* Step 2: Deal cards after shuffling */}
-              {dealing && !shuffling && (
-                <DealingAnimation
-                  step={dealStep}
-                  opponents={dealOpponentCount}
-                  spectating={spectating}
-                />
-              )}
             <div className="absolute inset-x-[8%] bottom-[19%] top-[14%] rounded-[48%] border-[10px] shadow-2xl sm:inset-x-[12%]" style={{ background: 'radial-gradient(ellipse at center, #8f231f 0%, #681512 58%, #3b0909 100%)', borderColor: '#160607', boxShadow: 'inset 0 0 70px rgba(0,0,0,0.48), 0 25px 60px rgba(0,0,0,0.7), 0 0 0 3px #7b2a24, 0 0 0 8px #260909' }}>
               <div className="absolute inset-4 rounded-[48%] border" style={{ borderColor: 'rgba(232,228,220,0.08)' }} />
               
@@ -525,6 +512,19 @@ useEffect(() => {
           )}              
               
             </div>
+                  {/* SHUFFLE ANIMATION */}
+              {dealing && shuffling && (
+                <ShuffleAnimation />
+              )}
+
+              {/* DEALING ANIMATION */}
+              {dealing && !shuffling && (
+                <DealingAnimation
+                  step={dealStep}
+                  opponents={dealOpponentCount}
+                  spectating={spectating}
+                />
+              )}
             {!gameStarted && !spectating && (
                 <div
                   className="absolute left-1/2 top-[28%] z-30 w-[min(90%,24rem)] -translate-x-1/2 rounded-2xl border p-5 text-center shadow-2xl"

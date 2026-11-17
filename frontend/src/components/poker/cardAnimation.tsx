@@ -40,7 +40,7 @@ export function DealingAnimation({
       aria-hidden="true"
     >
       {/* Deck positioned near the middle of the table */}
-      <div className="absolute left-1/2 top-[43%] -translate-x-1/2 -translate-y-1/2">
+      <div className="absolute left-[35%] top-[48%] -translate-x-1/2 -translate-y-1/2">
         <div
           className="h-14 w-10 rounded-md border-[3px] border-[#eee9df] shadow-xl"
           style={{
@@ -59,8 +59,8 @@ export function DealingAnimation({
             'repeating-linear-gradient(45deg, #6b1010 0 3px, #9d2a23 3px 6px)',
         }}
         initial={{
-          left: '50%',
-          top: '43%',
+          left: '35%',
+          top: '48%',
           x: '-50%',
           y: '-50%',
           rotate: -10,
@@ -92,6 +92,7 @@ export function FlippingPlayingCard({
   onClick: () => void
 }) {
   return (
+    <div className="shrink-0" style={{ perspective: 1000}}>
     <motion.div
       className="relative shrink-0"
       style={{ transformStyle: 'preserve-3d' }}
@@ -120,6 +121,7 @@ export function FlippingPlayingCard({
         }}
       />
     </motion.div>
+  </div>
   )
 }
 const cardBackStyle = {
@@ -128,18 +130,42 @@ const cardBackStyle = {
   border: "3px solid #eee9df",
   boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
 };
-
+function DeckStack({ count = 52 }: { count?: number }) {
+  return (
+    <div className="relative h-14 w-10">
+      {Array.from({ length: count }, (_, index) => (
+        <div
+          key={index}
+          className="absolute inset-0 rounded-md"
+          style={{
+            ...cardBackStyle,
+            transform: `translateY(${-index * 0.16}px)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 export function ShuffleAnimation() {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[35]"
       aria-hidden="true"
     >
-      <div className="absolute left-1/2 top-[43%] -translate-x-1/2 -translate-y-1/2">
-
-        {/* Left half of deck */}
+      {/* Position relative to the poker table */}
+      <div
+        className="absolute"
+        style={{
+          left: "35%",
+          top: "48%",
+          width: "56px",
+          height: "80px",
+          transform: "translate(-50%, -50%)",
+        }}
+      >
+        {/* Left half */}
         <motion.div
-          className="absolute h-20 w-14 rounded-lg"
+          className="absolute inset-0 rounded-lg"
           style={cardBackStyle}
           animate={{
             x: [0, -45, -45, 0],
@@ -153,9 +179,9 @@ export function ShuffleAnimation() {
           }}
         />
 
-        {/* Right half of deck */}
+        {/* Right half */}
         <motion.div
-          className="absolute h-20 w-14 rounded-lg"
+          className="absolute inset-0 rounded-lg"
           style={cardBackStyle}
           animate={{
             x: [0, 45, 45, 0],
@@ -168,7 +194,6 @@ export function ShuffleAnimation() {
             ease: "easeInOut",
           }}
         />
-
       </div>
     </div>
   );
