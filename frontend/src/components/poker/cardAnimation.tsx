@@ -51,7 +51,7 @@ export function DealingAnimation({
         }}
         initial={{
           left: "35%",
-          top: "48%",
+          top: "41%",
           x: "-50%",
           y: "-50%",
           rotate: 0,
@@ -151,6 +151,7 @@ export function DeckStack({ count = 52 }: { count?: number }) {
         position: "relative",
         width: 40,
         height: 56,
+        boxSizing: "border-box",
 
         // Red card back
         backgroundColor: "#6b1010",
@@ -173,6 +174,10 @@ export function DeckStack({ count = 52 }: { count?: number }) {
 
 
 export function ShuffleAnimation() {
+  const splitDuration = 0.7;
+  const cardInterval = 0.065;
+  const cardMoveDuration = 0.25;
+
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[35]"
@@ -182,25 +187,29 @@ export function ShuffleAnimation() {
         className="absolute"
         style={{
           left: "35%",
-          top: "48%",
+          top: "41%",
           width: 40,
           height: 56,
           transform: "translate(-50%, -50%)",
         }}
       >
         {Array.from({ length: 52 }, (_, index) => {
-          // Spread cards around the deck in different directions
-          const angle = index * 2.39996;
-          const distance = 12 + Math.sqrt(index / 51) * 58;
+          // Alternate cards between the two piles
+          const leftPile = index % 2 === 0;
 
-          const scatterX = Math.cos(angle) * distance;
-          const scatterY = Math.sin(angle) * distance * 0.55;
+          // 0 through 25 within each pile
+          const pileIndex = Math.floor(index / 2);
 
-          // Each card crosses toward another position
-          const mixX = Math.cos(angle + Math.PI * 0.8) * distance * 0.65;
-          const mixY = Math.sin(angle + Math.PI * 0.8) * distance * 0.4;
+          // Piles move left and right
+          const pileX = leftPile ? -65 : 65;
 
-          const rotation = ((index * 17) % 50) - 25;
+          // Cards return one by one:
+          // left, right, left, right...
+          const returnDelay =
+            splitDuration + index * cardInterval;
+
+          // Slight offset as the new deck builds
+          const stackY = -index * 0.10;
 
           return (
             <motion.div
@@ -211,18 +220,30 @@ export function ShuffleAnimation() {
               }}
               initial={{
                 x: 0,
-                y: 0,
+                y: -pileIndex * 0.12,
                 rotate: 0,
               }}
               animate={{
-                x: [0, scatterX, mixX, 0],
-                y: [0, scatterY, mixY, 0],
-                rotate: [0, rotation, -rotation * 0.5, 0],
+                x: [0, pileX, pileX, 0],
+                y: [
+                  -pileIndex * 0.12,
+                  -pileIndex * 0.12,
+                  -pileIndex * 0.12,
+                  stackY,
+                ],
+                rotate: 0,
               }}
               transition={{
-                duration: 2.8,
-                delay: (index % 13) * 0.018,
-                times: [0, 0.35, 0.7, 1],
+                duration:
+                  returnDelay + cardMoveDuration,
+                times: [
+                  0,
+                  splitDuration /
+                    (returnDelay + cardMoveDuration),
+                  returnDelay /
+                    (returnDelay + cardMoveDuration),
+                  1,
+                ],
                 ease: "easeInOut",
               }}
             >
@@ -231,14 +252,10 @@ export function ShuffleAnimation() {
                   width: 40,
                   height: 56,
                   boxSizing: "border-box",
-
-                  // Same red design as the dealt cards
                   background:
                     "repeating-linear-gradient(45deg, #6b1010 0px, #6b1010 3px, #9d2a23 3px, #9d2a23 6px)",
                   border: "2px solid #eee9df",
                   borderRadius: 5,
-
-                  // No 3D-looking card shadows
                   boxShadow: "none",
                 }}
               />

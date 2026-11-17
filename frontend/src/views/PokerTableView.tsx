@@ -563,11 +563,11 @@ useEffect(() => {
                 className="pointer-events-none absolute z-[35]"
                 style={{
                   left: '35%',
-                  top: '48%',
+                  top: '41%',
                   transform: 'translate(-50%, -50%)',
                 }}
               >
-                <DeckStack count={remainingDeckCards} />
+                <DeckStack count={remainingDeckCards}   />
               </div>
             )}
 
