@@ -520,9 +520,10 @@ useEffect(() => {
               {/* DEALING ANIMATION */}
               {dealing && !shuffling && (
                 <DealingAnimation
-                  step={dealStep}
+                  step={dealing ? dealStep : -1}
                   opponents={dealOpponentCount}
                   spectating={spectating}
+                  finished = {!dealing}
                 />
               )}
             {!gameStarted && !spectating && (
