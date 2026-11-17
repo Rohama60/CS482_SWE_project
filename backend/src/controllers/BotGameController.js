@@ -9,6 +9,56 @@ import { getJoiningPlayer } from './JoinTableController.js';
 
 // Everything for playing against bots lives in this file, so PokerGameController.js is untouched.
 let ioRef = null;
+
+const SHUFFLE_DURATION = 5300;
+const CARD_INTERVAL = 340;
+const DECK_MOVE_DURATION = 800;
+const NETWORK_BUFFER = 300;
+
+// Tracks games still showing their initial dealing animation
+const pendingBotStarts = new Map();
+
+function runBotsSafely(gameId) {
+    Promise.resolve()
+        .then(() => service.runBots(gameId))
+        .catch(error => {
+            console.error('Bot turn failed:', error);
+        });
+}
+
+// Schedule the FIRST bot turn after the animation finishes
+function scheduleInitialBots(gameId, playerCount) {
+    const id = String(gameId);
+
+    // The dealing timer has one final tick to finish
+    const totalCards = playerCount * 5;
+
+    const delay =
+        SHUFFLE_DURATION +
+        (totalCards + 1) * CARD_INTERVAL +
+        DECK_MOVE_DURATION +
+        NETWORK_BUFFER;
+
+    const existingTimer = pendingBotStarts.get(id);
+    if (existingTimer) clearTimeout(existingTimer);
+
+    const timer = setTimeout(() => {
+        pendingBotStarts.delete(id);
+        runBotsSafely(id);
+    }, delay);
+
+    pendingBotStarts.set(id, timer);
+}
+
+// Don't let a game refresh start bots prematurely
+function runBotsWhenReady(gameId) {
+    if (pendingBotStarts.has(String(gameId))) {
+        return;
+    }
+
+    runBotsSafely(gameId);
+}
+
 const service = createGameService({
     tableDao: { findTableById, startTableGame, finishTableGame },
     gameDao: { createPokerGame, findPokerGameById, updatePokerGame, findLatestGameByTableId, runInTransaction },
@@ -83,14 +133,34 @@ export async function CreateBotGameController(req, res) {
                 message: 'Waiting for other players to be ready'
             });
         }
+                
         const game = await service.startGame(tableId);
         const player = await getJoiningPlayer(req);
         const view = await service.viewFor(game, player);
 
-        ioRef?.to(`table-${tableId}`).emit('game-started', { gameId: String(game._id), game: { ...view, myHand: undefined, legal: undefined } });
-        service.runBots(game._id);
+        // Count all players, including bots
+        const playerCount =
+            game.engine?.participants?.length ??
+            table.seats.length + (table.bots ?? 0);
 
-        return res.status(201).json({ game: view, seats: table.seats || [] });
+        // Schedule bots to begin after the full animation
+        scheduleInitialBots(game._id, playerCount);
+
+        // Tell the frontend to begin the shuffle
+        ioRef?.to(`table-${tableId}`).emit('game-started', {
+            gameId: String(game._id),
+            game: {
+                ...view,
+                myHand: undefined,
+                legal: undefined
+            }
+        });
+
+        return res.status(201).json({
+            game: view,
+            seats: table.seats || []
+        });
+
     } catch (error) { return sendError(res, error); }
 }
 
@@ -100,40 +170,92 @@ export async function BotGameActionController(req, res) {
         const player = await currentPlayer(req, res); if (!player) return;
         const { gameId } = req.params;
         if (!mongoose.isValidObjectId(gameId)) return res.status(400).json({ message: 'Invalid game ID' });
+        if (pendingBotStarts.has(String(gameId))) {
+            return res.status(409).json({
+                message: 'Wait for the cards to finish dealing'
+            });
+        }
         const { type, amount } = req.body || {};
         const game = await service.act(gameId, player, { type, amount });
-        service.runBots(gameId);
+        runBotsWhenReady(gameId);
         return res.status(200).json({ game: await service.viewFor(game, player) });
     } catch (error) { return sendError(res, error); }
 }
 
 // Draw: body { discard: [0..4] } (empty list = stand pat)
+
 export async function BotGameDrawController(req, res) {
     try {
-        const player = await currentPlayer(req, res); if (!player) return;
+        const player = await currentPlayer(req, res);
+        if (!player) return;
+
         const { gameId } = req.params;
-        if (!mongoose.isValidObjectId(gameId)) return res.status(400).json({ message: 'Invalid game ID' });
-        const discard = req.body?.discard;
-        if (discard !== undefined && !Array.isArray(discard)) {
-            return res.status(400).json({ message: 'Discard must be an array of card indexes' });
+
+        if (!mongoose.isValidObjectId(gameId)) {
+            return res.status(400).json({
+                message: 'Invalid game ID'
+            });
         }
-        const game = await service.draw(gameId, player, discard ?? []);
-        service.runBots(gameId);
-        return res.status(200).json({ game: await service.viewFor(game, player) });
-    } catch (error) { return sendError(res, error); }
+
+        // Block drawing until the initial animation finishes
+        if (pendingBotStarts.has(String(gameId))) {
+            return res.status(409).json({
+                message: 'Wait for the cards to finish dealing'
+            });
+        }
+
+        const discard = req.body?.discard;
+
+        if (discard !== undefined && !Array.isArray(discard)) {
+            return res.status(400).json({
+                message: 'Discard must be an array of card indexes'
+            });
+        }
+
+        const game = await service.draw(
+            gameId,
+            player,
+            discard ?? []
+        );
+
+        runBotsWhenReady(gameId);
+
+        return res.status(200).json({
+            game: await service.viewFor(game, player)
+        });
+
+    } catch (error) {
+        return sendError(res, error);
+    }
 }
 
 export async function GetBotGameController(req, res) {
     try {
         ioRef = req.app.get('io');
+
         const { gameId } = req.params;
-        if (!mongoose.isValidObjectId(gameId)) return res.status(400).json({ message: 'Invalid game ID' });
+
+        if (!mongoose.isValidObjectId(gameId)) {
+            return res.status(400).json({
+                message: 'Invalid game ID'
+            });
+        }
+
         const player = await getJoiningPlayer(req);
         const game = await service.load(gameId);
-        service.runBots(gameId); // restarts bots if the server restarted mid-hand
-        return res.status(200).json({ game: await service.viewFor(game, player) });
-    } catch (error) { return sendError(res, error); }
+
+        // Respect the initial shuffle/dealing timer
+        runBotsWhenReady(gameId);
+
+        return res.status(200).json({
+            game: await service.viewFor(game, player)
+        });
+
+    } catch (error) {
+        return sendError(res, error);
+    }
 }
+
 
 // Latest hand at a table (so a refresh brings you back to it)
 export async function GetTableBotGameController(req, res) {
@@ -144,7 +266,7 @@ export async function GetTableBotGameController(req, res) {
         const player = await getJoiningPlayer(req);
         const latest = await service.findLatest(id);
         if (!latest?.engine) return res.status(404).json({ message: 'No game at this table yet' });
-        service.runBots(latest._id);
+        runBotsWhenReady(latest._id);
         return res.status(200).json({ game: await service.viewFor(latest, player) });
     } catch (error) { return sendError(res, error); }
 }
