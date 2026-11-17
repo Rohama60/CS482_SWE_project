@@ -202,6 +202,7 @@ describe('CreateBotGameController', () => {
         expect(service.startGame).not.toHaveBeenCalled();
     });
     test('201: starts the hand, tells the room, starts the bots and returns the players view', async () => {
+        jest.useFakeTimers();
         const seats = [
             ...HOST_TABLE.seats,
             {
@@ -228,7 +229,11 @@ describe('CreateBotGameController', () => {
         expect(service.viewFor).toHaveBeenCalledWith(game, PLAYER);
         expect(res.status).toHaveBeenCalledWith(201);
         expect(res.json).toHaveBeenCalledWith({ game: VIEW, seats });
+
+        jest.runAllTimers();
+        await Promise.resolve();
         expect(service.runBots).toHaveBeenCalledWith('g1');
+        jest.useRealTimers();
     });
 
     test('the room announcement does not include the starting players private cards or options', async () => {
@@ -526,17 +531,21 @@ describe('GetTableBotGameController', () => {
     });
 
     test('200: returns the latest hand and restarts the bots', async () => {
-        const latest = { _id: 'g1', engine: { round: 'betting1' } };
+        jest.useFakeTimers();
+        const latest = { _id: 'g-latest', engine: { round: 'betting1' } };
         service.findLatest.mockResolvedValue(latest);
         const res = makeRes();
 
         await GetTableBotGameController(makeReq({ params: { id: TABLE_ID } }), res);
 
         expect(service.findLatest).toHaveBeenCalledWith(TABLE_ID);
-        expect(service.runBots).toHaveBeenCalledWith('g1');
+        jest.runAllTimers();
+        await Promise.resolve();
+        expect(service.runBots).toHaveBeenCalledWith('g-latest');
         expect(service.viewFor).toHaveBeenCalledWith(latest, PLAYER);
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith({ game: VIEW });
+        jest.useRealTimers();
     });
 
     test('500 for unexpected errors', async () => {

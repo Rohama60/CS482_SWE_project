@@ -188,4 +188,7 @@ export async function startGame() {
   )
 
   await screen.findByLabelText('CurrentPot: $3')
+  await waitFor(() => {
+    expect(screen.queryByText('Preparing your turn...')).not.toBeInTheDocument()
+  })
 }

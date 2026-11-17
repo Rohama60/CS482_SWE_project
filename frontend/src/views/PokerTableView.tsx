@@ -120,6 +120,16 @@ function startDealing(
 
     setDealStep(-1);
 
+    const reducedMotion =
+      typeof window.matchMedia !== 'function' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reducedMotion) {
+      setShuffling(false);
+      setDealing(false);
+      return;
+    }
+
     // Start the shuffle first
     setShuffling(true);
 
@@ -141,6 +151,15 @@ useEffect(() => {
   // Lock player actions while the shuffle or deal is active
   if (!gameStarted || dealing || shuffling) {
     setActionsUnlocked(false);
+    return;
+  }
+
+  const reducedMotion =
+    typeof window.matchMedia !== 'function' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (reducedMotion) {
+    setActionsUnlocked(true);
     return;
   }
 
