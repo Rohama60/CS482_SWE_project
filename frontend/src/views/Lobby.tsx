@@ -5,6 +5,7 @@ import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
 import { FriendsPage } from './FriendsPage.tsx'
+import { HistoryPage } from './HistoryPage.tsx'
 import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 import { AdSlot } from '../components/lobby/AdSlot'
@@ -43,6 +44,8 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onLeade
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  // P13: the Game History page
+  const [showHistory, setShowHistory] = useState(false)
   // P11: how many friend requests are waiting, for the badge on the Friends button
   const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
@@ -331,6 +334,10 @@ async function handleSignOut() {
     console.error('Sign out failed:', error)
   }
 }
+
+if (showHistory && isAuthenticated) {
+    return <HistoryPage onBack={() => setShowHistory(false)} />
+  }
 
 if (showFriends && isAuthenticated) {
     return (
