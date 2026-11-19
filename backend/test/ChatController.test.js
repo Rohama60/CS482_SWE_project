@@ -99,8 +99,8 @@ describe('Loading the chat (M3)', () => {
 
         expect(mockFindRecentMessages).toHaveBeenCalledWith(TABLE_ID);
         expect(res.status).toHaveBeenCalledWith(200);
-        // Only what the browser needs, not the account id
-        expect(res.json).toHaveBeenCalledWith({ messages: [{ id: 'm1', name: 'Josue', message: 'gl', createdAt: NOW }] });
+        // Only what the browser needs, plus who sent it so muted players can be hidden
+        expect(res.json).toHaveBeenCalledWith({ messages: [{ id: 'm1', senderId: 'x', name: 'Josue', message: 'gl', createdAt: NOW }] });
     });
 
     test('a bad table id is rejected', async () => {
@@ -128,7 +128,7 @@ describe('Sending a message (M3)', () => {
             tableId: TABLE_ID, accountId: ACCOUNT._id, name: 'Preston', message: 'good luck', filtered: false,
         });
         expect(io.to).toHaveBeenCalledWith(`table-${TABLE_ID}`);
-        expect(roomEmit).toHaveBeenCalledWith('chat:message', { id: 'msg1', name: 'Preston', message: 'good luck', createdAt: NOW });
+        expect(roomEmit).toHaveBeenCalledWith('chat:message', { id: 'msg1', senderId: ACCOUNT._id, name: 'Preston', message: 'good luck', createdAt: NOW });
         expect(socket.emit).not.toHaveBeenCalled();
     });
 
@@ -328,8 +328,12 @@ describe('Hooking chat onto a connection (M3)', () => {
         expect(roomEmit).not.toHaveBeenCalled();
     });
 
-    test('toChatMessage keeps only what the browser needs', () => {
-        expect(toChatMessage({ _id: 'a', name: 'n', message: 'm', createdAt: NOW, accountId: 'secret' }))
-            .toEqual({ id: 'a', name: 'n', message: 'm', createdAt: NOW });
+    test('toChatMessage keeps only what the browser needs, including who sent it', () => {
+        expect(toChatMessage({ _id: 'a', name: 'n', message: 'm', createdAt: NOW, accountId: ACCOUNT._id, tableId: TABLE_ID, filtered: true }))
+            .toEqual({ id: 'a', senderId: ACCOUNT._id, name: 'n', message: 'm', createdAt: NOW });
+    });
+
+    test('toChatMessage leaves senderId out when there is no sender', () => {
+        expect(toChatMessage({ _id: 'a', name: 'n', message: 'm', createdAt: NOW })).not.toHaveProperty('senderId', expect.anything());
     });
 });

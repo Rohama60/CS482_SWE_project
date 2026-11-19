@@ -16,6 +16,8 @@ export const SEATED_ONLY = 'Take a seat at the table to chat';
 export function toChatMessage(doc) {
     return {
         id: String(doc._id),
+        // Mute Others: who sent it, so muted players' messages can be hidden
+        senderId: doc.accountId ? String(doc.accountId) : undefined,
         name: doc.name,
         message: doc.message,
         createdAt: doc.createdAt,

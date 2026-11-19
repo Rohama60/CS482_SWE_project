@@ -309,3 +309,248 @@ describe('Scrolling the chat', () => {
     expect(await screen.findByText('a'.repeat(200))).toHaveStyle({ overflowWrap: 'anywhere' })
   })
 })
+
+// Mute Others: members can mute a player so their messages are hidden. Mutes are saved to your account.
+describe('Muting players', () => {
+  const JOSUE_ID = 'acct-josue'
+  const ROHAMA_ID = 'acct-rohama'
+  const ME_ID = 'acct-me'
+  const MESSAGES = [
+    { id: 'm1', senderId: JOSUE_ID, name: 'Josue', message: 'good luck' },
+    { id: 'm2', senderId: ME_ID, name: 'Preston', message: 'you too' },
+    { id: 'm3', senderId: ROHAMA_ID, name: 'Rohama', message: 'nice hand' },
+  ]
+
+  // Answers by "METHOD url", like the real server
+  function installServer({ muted = [], overrides = {} } = {}) {
+    let saved = [...muted]
+    global.fetch = jest.fn((url, options = {}) => {
+      const key = `${options.method || 'GET'} ${url}`
+      const ok = body => Promise.resolve({ ok: true, json: () => Promise.resolve(body) })
+      if (overrides[key]) return overrides[key](url, options)
+      if (key === 'GET /api/tables/t1/chat') return ok({ messages: MESSAGES })
+      if (key === 'GET /api/chat/mutes') return ok({ muted: saved })
+      if (key === 'POST /api/chat/mutes') {
+        saved = [...saved, JSON.parse(options.body).playerId]
+        return ok({ message: 'muted' })
+      }
+      if (key.startsWith('DELETE /api/chat/mutes/')) {
+        saved = saved.filter(id => !url.endsWith(id))
+        return ok({ message: 'unmuted' })
+      }
+      return Promise.resolve({ ok: false, json: () => Promise.resolve({ error: `Unhandled ${key}` }) })
+    })
+  }
+
+  const fetchCalls = key => global.fetch.mock.calls.filter(([url, o = {}]) => `${o.method || 'GET'} ${url}` === key)
+
+  async function open({ isMember = true, isSeated = true, ...server } = {}) {
+    installServer(server)
+    render(<TableChat tableId="t1" isMember={isMember} isSeated={isSeated} myName="Preston" />)
+    // Your own message is never hidden, so it shows the chat has loaded
+    await screen.findByText('you too')
+    if (isMember) await waitFor(() => expect(fetchCalls('GET /api/chat/mutes')).toHaveLength(1))
+  }
+
+  const muteButton = name => screen.getByRole('button', { name: `Mute ${name}` })
+
+  test('members see a Mute button on other players, not on themselves', async () => {
+    await open()
+    expect(muteButton('Josue')).toBeInTheDocument()
+    expect(muteButton('Rohama')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mute Preston' })).not.toBeInTheDocument()
+  })
+
+  test('guests do not see Mute buttons and never ask for mutes', async () => {
+    await open({ isMember: false })
+    expect(screen.queryByRole('button', { name: /^Mute / })).not.toBeInTheDocument()
+    expect(fetchCalls('GET /api/chat/mutes')).toHaveLength(0)
+  })
+
+  test('members watching a table can still mute', async () => {
+    await open({ isSeated: false })
+    expect(muteButton('Josue')).toBeInTheDocument()
+  })
+
+  test('messages without a sender have no Mute button', async () => {
+    installServer({ overrides: { 'GET /api/tables/t1/chat': () => Promise.resolve({ ok: true, json: () => Promise.resolve({ messages: [{ id: 'old', name: 'Old', message: 'hi' }] }) }) } })
+    render(<TableChat tableId="t1" isMember isSeated myName="Preston" />)
+    await screen.findByText('hi')
+    expect(screen.queryByRole('button', { name: 'Mute Old' })).not.toBeInTheDocument()
+  })
+
+  test('muting saves it to your account and hides their messages', async () => {
+    await open()
+    fireEvent.click(muteButton('Josue'))
+
+    await waitFor(() => expect(screen.queryByText('good luck')).not.toBeInTheDocument())
+    expect(screen.getByText('nice hand')).toBeInTheDocument()
+    expect(screen.getByText('you too')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Josue is muted')
+    const [[, options]] = fetchCalls('POST /api/chat/mutes')
+    expect(JSON.parse(options.body)).toEqual({ playerId: JOSUE_ID })
+    expect(options.credentials).toBe('include')
+  })
+
+  test('players you muted before stay hidden when you open the table', async () => {
+    await open({ muted: [ROHAMA_ID] })
+    await waitFor(() => expect(screen.queryByText('nice hand')).not.toBeInTheDocument())
+    expect(screen.getByText('good luck')).toBeInTheDocument()
+  })
+
+  test('muted players are listed with an Unmute button', async () => {
+    await open({ muted: [ROHAMA_ID] })
+    const list = await screen.findByLabelText('Muted players')
+    expect(list).toHaveTextContent('Rohama')
+    expect(screen.getByRole('button', { name: 'Unmute Rohama' })).toBeInTheDocument()
+  })
+
+  test('muted players with no messages here are not listed', async () => {
+    await open({ muted: ['acct-someone-else'] })
+    await waitFor(() => expect(fetchCalls('GET /api/chat/mutes')).toHaveLength(1))
+    expect(screen.queryByLabelText('Muted players')).not.toBeInTheDocument()
+  })
+
+  test('Unmute shows their messages again', async () => {
+    await open({ muted: [ROHAMA_ID] })
+    fireEvent.click(await screen.findByRole('button', { name: 'Unmute Rohama' }))
+
+    expect(await screen.findByText('nice hand')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Muted players')).not.toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Rohama is unmuted')
+    expect(fetchCalls(`DELETE /api/chat/mutes/${ROHAMA_ID}`)).toHaveLength(1)
+  })
+
+  test('new live messages from a muted player stay hidden', async () => {
+    await open({ muted: [JOSUE_ID] })
+    await waitFor(() => expect(screen.queryByText('good luck')).not.toBeInTheDocument())
+    serverSends('chat:message', { id: 'm9', senderId: JOSUE_ID, name: 'Josue', message: 'still here' })
+    serverSends('chat:message', { id: 'm10', senderId: ROHAMA_ID, name: 'Rohama', message: 'gg' })
+    expect(screen.queryByText('still here')).not.toBeInTheDocument()
+    expect(screen.getByText('gg')).toBeInTheDocument()
+  })
+
+  test('if muting fails, the message stays and the error pops up', async () => {
+    await open({ overrides: { 'POST /api/chat/mutes': () => Promise.resolve({ ok: false, json: () => Promise.resolve({ error: 'Player not found' }) }) } })
+    fireEvent.click(muteButton('Josue'))
+    expect(await screen.findByRole('status')).toHaveTextContent('Player not found')
+    expect(screen.getByText('good luck')).toBeInTheDocument()
+  })
+
+  test('a mute failure that is not a normal error uses a fallback', async () => {
+    await open({ overrides: { 'POST /api/chat/mutes': () => Promise.reject('down') } })
+    fireEvent.click(muteButton('Josue'))
+    expect(await screen.findByRole('status')).toHaveTextContent('Could not mute that player')
+  })
+
+  test('if unmuting fails, they stay muted and the error pops up', async () => {
+    await open({ muted: [ROHAMA_ID], overrides: { [`DELETE /api/chat/mutes/${ROHAMA_ID}`]: () => Promise.reject(new Error('Server error')) } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Unmute Rohama' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Server error')
+    expect(screen.queryByText('nice hand')).not.toBeInTheDocument()
+  })
+
+  test('an unmute failure that is not a normal error uses a fallback', async () => {
+    await open({ muted: [ROHAMA_ID], overrides: { [`DELETE /api/chat/mutes/${ROHAMA_ID}`]: () => Promise.reject('down') } })
+    fireEvent.click(await screen.findByRole('button', { name: 'Unmute Rohama' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Could not unmute that player')
+  })
+
+  test('if loading your mutes fails, nobody is hidden', async () => {
+    await open({ overrides: { 'GET /api/chat/mutes': () => Promise.reject(new Error('down')) } })
+    await waitFor(() => expect(fetchCalls('GET /api/chat/mutes')).toHaveLength(1))
+    expect(screen.getByText('good luck')).toBeInTheDocument()
+    expect(screen.getByText('nice hand')).toBeInTheDocument()
+  })
+
+  test('a mutes reply with no list counts as nobody muted', async () => {
+    await open({ overrides: { 'GET /api/chat/mutes': () => Promise.resolve({ ok: true, json: () => Promise.resolve({}) }) } })
+    await waitFor(() => expect(fetchCalls('GET /api/chat/mutes')).toHaveLength(1))
+    expect(screen.getByText('nice hand')).toBeInTheDocument()
+  })
+
+  test('if every message is from muted players, it says no messages yet', async () => {
+    const fromOthers = MESSAGES.filter(message => message.senderId !== ME_ID)
+    installServer({
+      muted: [JOSUE_ID, ROHAMA_ID],
+      overrides: { 'GET /api/tables/t1/chat': () => Promise.resolve({ ok: true, json: () => Promise.resolve({ messages: fromOthers }) }) },
+    })
+    render(<TableChat tableId="t1" isMember isSeated myName="Preston" />)
+    await waitFor(() => expect(fetchCalls('GET /api/tables/t1/chat')).toHaveLength(1))
+    await waitFor(() => expect(screen.queryByText('nice hand')).not.toBeInTheDocument())
+    expect(screen.queryByText('good luck')).not.toBeInTheDocument()
+    expect(screen.getByText('No messages yet.')).toBeInTheDocument()
+  })
+
+  describe('with more than one muted player', () => {
+    const AYANA_ID = 'acct-ayana'
+    async function openWithThreeMuted() {
+      installServer({
+        muted: [JOSUE_ID, ROHAMA_ID, AYANA_ID],
+        overrides: {
+          'GET /api/tables/t1/chat': () => Promise.resolve({ ok: true, json: () => Promise.resolve({
+            messages: [...MESSAGES, { id: 'm4', senderId: AYANA_ID, name: 'Ayana', message: 'hey' }],
+          }) }),
+        },
+      })
+      render(<TableChat tableId="t1" isMember isSeated myName="Preston" />)
+      await screen.findByText('you too')
+      await screen.findByLabelText('Muted players')
+    }
+    const dots = () => screen.getByRole('button', { name: /more muted|Hide other muted players/ })
+
+    test('only the first shows, with dots for the rest', async () => {
+      await openWithThreeMuted()
+      expect(screen.getByRole('button', { name: 'Unmute Josue' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Unmute Rohama' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Unmute Ayana' })).not.toBeInTheDocument()
+      expect(dots()).toHaveTextContent('•••')
+      expect(dots()).toHaveAccessibleName('Show 2 more muted')
+      expect(dots()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    test('clicking the dots shows the rest, lined up under the first one', async () => {
+      await openWithThreeMuted()
+      fireEvent.click(dots())
+
+      const rohama = screen.getByRole('button', { name: 'Unmute Rohama' })
+      const ayana = screen.getByRole('button', { name: 'Unmute Ayana' })
+      expect(dots()).toHaveAttribute('aria-expanded', 'true')
+      // Each extra one sits in the same column as the first, under "Muted:"
+      expect(rohama.closest('div')).toHaveStyle({ gridColumn: '2' })
+      expect(ayana.closest('div')).toHaveStyle({ gridColumn: '2' })
+    })
+
+    test('clicking the dots again folds them back up', async () => {
+      await openWithThreeMuted()
+      fireEvent.click(dots())
+      fireEvent.click(dots())
+      expect(screen.queryByRole('button', { name: 'Unmute Rohama' })).not.toBeInTheDocument()
+      expect(dots()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    test('one muted player shows no dots', async () => {
+      await open({ muted: [ROHAMA_ID] })
+      await screen.findByLabelText('Muted players')
+      expect(screen.queryByRole('button', { name: /more muted/ })).not.toBeInTheDocument()
+    })
+
+    test('unmuting down to one player hides the dots and folds the list', async () => {
+      await openWithThreeMuted()
+      fireEvent.click(dots())
+      fireEvent.click(screen.getByRole('button', { name: 'Unmute Josue' }))
+      await screen.findByText('good luck')
+      fireEvent.click(screen.getByRole('button', { name: 'Unmute Rohama' }))
+      await screen.findByText('nice hand')
+
+      expect(screen.getByRole('button', { name: 'Unmute Ayana' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /more muted|Hide other/ })).not.toBeInTheDocument()
+
+      // Muting someone again starts folded
+      fireEvent.click(screen.getByRole('button', { name: 'Mute Josue' }))
+      await waitFor(() => expect(screen.queryByText('good luck')).not.toBeInTheDocument())
+      expect(dots()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('button', { name: 'Unmute Josue' })).not.toBeInTheDocument()
+    })
+  })
+})
