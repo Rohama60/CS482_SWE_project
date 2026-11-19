@@ -15,6 +15,7 @@ type LobbyProps = {
   onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
   onProfile: () => void;
+  onLeaderboard: () => void;
 };
 
 
@@ -26,7 +27,7 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
 
-export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onLeaderboard }: LobbyProps) {
  const { data: session, isPending, error: sessionError } = authClient.useSession()
   const isAuthenticated = Boolean(session?.user)
 
@@ -506,6 +507,14 @@ return (
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={onLeaderboard}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+              style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #3a3d49' }}
+            >
+              <span aria-hidden="true" style={{ color: '#e7c86e' }}>♛</span>
+              LeaderBoard
+            </button>
             {isAuthenticated && (
               <button
                 onClick={() => setShowFriends(true)}
@@ -762,12 +771,11 @@ return (
             return (
               <div
                 key={table.id}
-              //  onClick={() => !isFull && onJoin(table)}
-               
-                className="rounded-2xl p-5 "
+                // onClick={() => !isFull && onJoin(table)}
+                className="rounded-2xl p-5"
                 style={{
                   background: '#161820',
-                  border: `1px solid  '#222430'}`,
+                  border: '1px solid #222430',
                   opacity: isFull ? 0.5 : 1,
                   cursor: isFull ? 'not-allowed' : 'pointer',
                 }}

@@ -10,6 +10,7 @@ import { joinTable, stopSpectating } from './tableJoin.ts'
 import { LoginModal } from './components/LoginModal.tsx'
 import { AdminDashboard } from './views/AdminDashboard.tsx'
 import ProfileTab from './views/ProfileTab.tsx'
+import LeaderboardView from './views/LeaderboardView.tsx'
 import { authClient } from './AuthClient.ts'
 
 
@@ -87,7 +88,25 @@ export default function App() {
             setView('table');
           }}
           onProfile={() => openProfile('lobby')}
-        onSignUp={openSignUp}
+          onLeaderboard={() => setView('leaderboard')}
+          onSignUp={openSignUp}
+      />
+    )
+  }
+
+  if (view === 'leaderboard') {
+    return (
+      <LeaderboardView
+        currentUser={session?.user ? {
+          id: session.user.id,
+          displayName: session.user.name,
+          username: session.user.name,
+          email: session.user.email,
+          role: 'player',
+        } : null}
+        onBack={() => setView('lobby')}
+        onProfile={() => openProfile('leaderboard')}
+        onLogout={handleProfileLogout}
       />
     )
   }
