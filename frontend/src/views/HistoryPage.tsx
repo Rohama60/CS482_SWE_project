@@ -2,7 +2,7 @@ import { GameHistory } from '../components/history/GameHistory.tsx'
 
 // P13 Game History page, opened from the History button in the lobby.
 // All the history itself is in GameHistory, so it can move to the Profile page later.
-export function HistoryPage({ onBack }: { onBack: () => void }) {
+export function HistoryPage({ onBack, backLabel = 'Back to lobby' }: { onBack: () => void; backLabel?: string }) {
   return (
     <div className="relative min-h-screen" style={{ background: '#0a0a0b', overflowX: 'hidden' }}>
       <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(90,10,10,0.45) 0%, transparent 70%)' }} />
@@ -24,7 +24,7 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
             className="rounded-lg text-xs font-semibold"
             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#22242c', border: '1px solid #343743', color: '#e8e4dc' }}
           >
-            <span aria-hidden="true">←</span> Back to lobby
+            <span aria-hidden="true">←</span> {backLabel}
           </button>
         </div>
         <div style={{ padding: '20px 24px' }}>

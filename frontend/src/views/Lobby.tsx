@@ -5,7 +5,6 @@ import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
 import { FriendsPage } from './FriendsPage.tsx'
-import { HistoryPage } from './HistoryPage.tsx'
 import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 import { AdSlot } from '../components/lobby/AdSlot'
@@ -16,6 +15,7 @@ type LobbyProps = {
   onSpectate: (table: PokerTableData) => void;
   onSignUp: () => void;
   onProfile: () => void;
+  onHistory: () => void;
   onLeaderboard: () => void;
 };
 
@@ -28,7 +28,7 @@ const STAKE_LABELS: Record<string, string> = { low: 'Low Stakes', medium: 'Mid S
 
 type StakeFilter = 'all' | 'low' | 'medium' | 'high'
 
-export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onLeaderboard }: LobbyProps) {
+export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onHistory, onLeaderboard }: LobbyProps) {
  const { data: session, isPending, error: sessionError } = authClient.useSession()
   const isAuthenticated = Boolean(session?.user)
 
@@ -44,8 +44,6 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onLeade
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
-  // P13: the Game History page
-  const [showHistory, setShowHistory] = useState(false)
   // P11: how many friend requests are waiting, for the badge on the Friends button
   const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
@@ -335,10 +333,6 @@ async function handleSignOut() {
   }
 }
 
-if (showHistory && isAuthenticated) {
-    return <HistoryPage onBack={() => setShowHistory(false)} />
-  }
-
 if (showFriends && isAuthenticated) {
     return (
       <FriendsPage
@@ -441,6 +435,23 @@ return (
                     >
                       <span style={{ color: '#c0392b' }}>♙</span>
                       Profile
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        onHistory()
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                      }}
+                    >
+                      <span style={{ color: '#c0392b' }}>◷</span>
+                      History
                     </button>
                     <button
                       type="button"

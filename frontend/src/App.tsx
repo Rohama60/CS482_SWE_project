@@ -11,6 +11,7 @@ import { LoginModal } from './components/LoginModal.tsx'
 import { AdminDashboard } from './views/AdminDashboard.tsx'
 import ProfileTab from './views/ProfileTab.tsx'
 import LeaderboardView from './views/LeaderboardView.tsx'
+import { HistoryPage } from './views/HistoryPage.tsx'
 import { authClient } from './AuthClient.ts'
 
 
@@ -36,6 +37,7 @@ export default function App() {
   const [selectedTable, setSelectedTable] = useState<PokerTableData>(TABLES[0])
   const [previousView, setPreviousView] = useState<View>('home')
   const [profileReturnView, setProfileReturnView] = useState<View>('home')
+  const [historyReturnView, setHistoryReturnView] = useState<View>('home')
   const [spectating, setSpectating] = useState(false) // P3
   const [showLogin, setShowLogin] = useState(false)
   const { data: session } = authClient.useSession()
@@ -43,6 +45,11 @@ export default function App() {
   function openProfile(returnTo: View) {
     setProfileReturnView(returnTo)
     setView('profile')
+  }
+
+  function openHistory(returnTo: View) {
+    setHistoryReturnView(returnTo)
+    setView('history')
   }
 
   async function handleProfileLogout() {
@@ -88,6 +95,7 @@ export default function App() {
             setView('table');
           }}
           onProfile={() => openProfile('lobby')}
+          onHistory={() => openHistory('lobby')}
           onLeaderboard={() => setView('leaderboard')}
           onSignUp={openSignUp}
       />
@@ -111,9 +119,18 @@ export default function App() {
     )
   }
 
+  if (view === 'history') {
+    return (
+      <HistoryPage
+        onBack={() => setView(historyReturnView)}
+        backLabel={historyReturnView === 'home' ? 'Back to home' : 'Back to lobby'}
+      />
+    )
+  }
+
   if (view === 'profile') {
     if (!session?.user) {
-      return <Home view="home" setView={setView} onSignUp={openSignUp} onSignIn={() => setShowLogin(true)} onProfile={() => openProfile('home')} />
+      return <Home view="home" setView={setView} onSignUp={openSignUp} onSignIn={() => setShowLogin(true)} onProfile={() => openProfile('home')} onHistory={() => openHistory('home')} />
     }
 
     return (
@@ -175,6 +192,7 @@ export default function App() {
         onSignUp={openSignUp}
         onSignIn={() => setShowLogin(true)}
         onProfile={() => openProfile('home')}
+        onHistory={() => openHistory('home')}
       />
       {showLogin && (
         <LoginModal

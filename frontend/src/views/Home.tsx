@@ -39,12 +39,13 @@ type HomeProps = {
     onSignUp: () => void
     onSignIn: () => void
     onProfile: () => void
+    onHistory: () => void
 
 }
 
 
 
-export default function Home({ setView, onSignUp, onSignIn, onProfile }: HomeProps) {
+export default function Home({ setView, onSignUp, onSignIn, onProfile, onHistory }: HomeProps) {
     const { data: session } = authClient.useSession();
 
     const [showDropdown, setShowDropdown] = useState(false)
@@ -177,6 +178,23 @@ export default function Home({ setView, onSignUp, onSignIn, onProfile }: HomePro
                     >
                         <span style={{ color: '#c0392b' }}>♙</span>
                         Profile
+                    </button>
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                            setShowProfileMenu(false)
+                            onHistory()
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                        style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                        }}
+                    >
+                        <span style={{ color: '#c0392b' }}>◷</span>
+                        History
                     </button>
                     <button
                         type="button"
@@ -403,8 +421,14 @@ export default function Home({ setView, onSignUp, onSignIn, onProfile }: HomePro
         </main>
 
         {/* Footer */}
-        <footer className="relative z-10 flex items-center justify-center py-6">
-            <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.2 }}>© 2026 Royal Draw · Play responsibly</p>
+        <footer className="relative z-10 flex flex-col items-center gap-2 px-6 py-6 text-center">
+            <p className="max-w-2xl text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.5 }}>
+                For entertainment only. All chips are fictional and have no real-world cash value.
+            </p>
+            <p className="max-w-2xl text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.5 }}>
+                If gambling is affecting you or someone you care about, seek help from a local gambling-support service.
+            </p>
+            <p className="mt-1 text-xs" style={{ color: '#e8e4dc', opacity: 0.25 }}>© 2026 Royal Draw · Play responsibly</p>
         </footer>
 
         {/* Bottom gold line */}

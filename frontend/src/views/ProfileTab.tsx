@@ -94,18 +94,21 @@ export default function ProfileTab({
   onBack: () => void
   onLogout: () => void
 }) {
-  const handsPlayed = user.handsPlayed ?? 0
-  const wins = user.wins ?? 0
+  const [profile, setProfile] = useState(user)
+  const handsPlayed = profile.handsPlayed ?? 0
+  const wins = profile.wins ?? 0
   const losses = Math.max(handsPlayed - wins, 0)
-  const name = user.displayName ?? user.username ?? 'Royal Draw player'
+  const name = profile.displayName ?? profile.username ?? 'Royal Draw player'
   const [activeSection, setActiveSection] = useState<'overview' | 'avatars'>('overview')
   const [equippedAvatar, setEquippedAvatar] = useState<AvatarID | 'upload'>('scarlet-ace')
   const [ownedAvatars, setOwnedAvatars] = useState<Set<AvatarID>>(new Set(['scarlet-ace', 'midnight-club']))
-  const [chipBalance, setChipBalance] = useState(user.chips ?? 0)
+  const [chipBalance, setChipBalance] = useState(profile.chips ?? 0)
   const [avatarPreview, setAvatarPreview] = useState('')
   const [uploadError, setUploadError] = useState('')
   const [notice, setNotice] = useState('')
-  const [vaultReady, setVaultReady] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState('')
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false)
 
   const avatars: AvatarOption[] = [
     { id: 'scarlet-ace', name: 'Scarlet Ace', tier: 'Starter', description: 'The house classic.', accent: '#c0392b', glow: 'rgba(192,57,43,.26)' },
@@ -120,58 +123,111 @@ export default function ProfileTab({
   const winRate = handsPlayed ? Math.round((wins / handsPlayed) * 100) : 0
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(`royal-draw-avatar-vault:${user.id}`) ?? 'null') as {
-        equipped?: AvatarID
-        owned?: AvatarID[]
-        chips?: number
-      } | null
-      if (saved?.equipped && AVATAR_IDS.includes(saved.equipped)) setEquippedAvatar(saved.equipped)
-      if (saved?.owned) setOwnedAvatars(new Set(['scarlet-ace', 'midnight-club', ...saved.owned.filter(id => AVATAR_IDS.includes(id))]))
-      if (typeof saved?.chips === 'number') setChipBalance(saved.chips)
-    } catch {
-      localStorage.removeItem(`royal-draw-avatar-vault:${user.id}`)
-    } finally {
-      setVaultReady(true)
+    const controller = new AbortController()
+    async function loadProfile() {
+      setProfileLoading(true)
+      setProfileError('')
+      try {
+        const response = await fetch('/api/users/me/profile', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
+        const data = await response.json().catch(() => null) as {
+          error?: string
+          profile?: ProfileUser & {
+            avatarId?: AvatarID | 'upload'
+            ownedAvatars?: string[]
+            customAvatar?: string
+          }
+        } | null
+        if (!response.ok || !data?.profile) {
+          throw new Error(data?.error ?? 'Could not load your profile.')
+        }
+
+        const loadedProfile = data.profile
+        setProfile(loadedProfile)
+        setChipBalance(loadedProfile.chips ?? 0)
+        if (loadedProfile.avatarId && (loadedProfile.avatarId === 'upload' || AVATAR_IDS.includes(loadedProfile.avatarId))) {
+          setEquippedAvatar(loadedProfile.avatarId)
+        }
+        setOwnedAvatars(new Set([
+          'scarlet-ace',
+          'midnight-club',
+          ...(loadedProfile.ownedAvatars ?? []).filter((id): id is AvatarID => AVATAR_IDS.includes(id as AvatarID)),
+        ]))
+        setAvatarPreview(loadedProfile.customAvatar ?? '')
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          setProfileError(error instanceof Error ? error.message : 'Could not load your profile.')
+        }
+      } finally {
+        if (!controller.signal.aborted) setProfileLoading(false)
+      }
     }
+
+    void loadProfile()
+    return () => controller.abort()
   }, [user.id])
 
-  useEffect(() => {
-    if (!vaultReady || equippedAvatar === 'upload') return
-    localStorage.setItem(`royal-draw-avatar-vault:${user.id}`, JSON.stringify({
-      equipped: equippedAvatar,
-      owned: Array.from(ownedAvatars),
-      chips: chipBalance,
-    }))
-  }, [chipBalance, equippedAvatar, ownedAvatars, user.id, vaultReady])
-
-  function chooseAvatar(avatar: AvatarOption) {
-    setNotice('')
-    if (ownedAvatars.has(avatar.id) || avatar.unlock?.complete) {
-      setOwnedAvatars(current => new Set(current).add(avatar.id))
-      setEquippedAvatar(avatar.id)
-      setNotice(`${avatar.name} equipped.`)
-      setActiveSection('overview')
-      return
+  function applyProfileData(loadedProfile: ProfileUser & {
+    avatarId?: AvatarID | 'upload'
+    ownedAvatars?: string[]
+    customAvatar?: string
+  }) {
+    setProfile(loadedProfile)
+    setChipBalance(loadedProfile.chips ?? 0)
+    if (loadedProfile.avatarId && (loadedProfile.avatarId === 'upload' || AVATAR_IDS.includes(loadedProfile.avatarId))) {
+      setEquippedAvatar(loadedProfile.avatarId)
     }
-    if (avatar.unlock) {
+    setOwnedAvatars(new Set([
+      'scarlet-ace',
+      'midnight-club',
+      ...(loadedProfile.ownedAvatars ?? []).filter((id): id is AvatarID => AVATAR_IDS.includes(id as AvatarID)),
+    ]))
+    setAvatarPreview(loadedProfile.customAvatar ?? '')
+  }
+
+  async function chooseAvatar(avatar: AvatarOption) {
+    setNotice('')
+    if (!ownedAvatars.has(avatar.id) && avatar.unlock && !avatar.unlock.complete) {
       setNotice(`${avatar.name} unlocks after ${avatar.description.toLowerCase()}`)
       return
     }
-    if (avatar.price) {
-      if (chipBalance < avatar.price) {
-        setNotice(`You need ${avatar.price - chipBalance} more chips to unlock ${avatar.name}.`)
-        return
+    if (!ownedAvatars.has(avatar.id) && avatar.price && chipBalance < avatar.price) {
+      setNotice(`You need ${avatar.price - chipBalance} more chips to unlock ${avatar.name}.`)
+      return
+    }
+
+    setIsSavingAvatar(true)
+    try {
+      const response = await fetch('/api/users/me/profile/avatar', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatarId: avatar.id }),
+      })
+      const data = await response.json().catch(() => null) as {
+        error?: string
+        profile?: ProfileUser & {
+          avatarId?: AvatarID | 'upload'
+          ownedAvatars?: string[]
+          customAvatar?: string
+        }
+      } | null
+      if (!response.ok || !data?.profile) {
+        throw new Error(data?.error ?? 'Could not update your avatar.')
       }
-      setChipBalance(balance => balance - avatar.price!)
-      setOwnedAvatars(current => new Set(current).add(avatar.id))
-      setEquippedAvatar(avatar.id)
-      setNotice(`${avatar.name} purchased and equipped.`)
+      applyProfileData(data.profile)
+      setNotice(`${avatar.name} equipped.`)
       setActiveSection('overview')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not update your avatar.')
+    } finally {
+      setIsSavingAvatar(false)
     }
   }
 
-  function previewUpload(file: File | undefined) {
+  async function previewUpload(file: File | undefined) {
     setUploadError('')
     setNotice('')
     if (!file) return
@@ -184,15 +240,33 @@ export default function ProfileTab({
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      setAvatarPreview(String(reader.result ?? ''))
+    setIsSavingAvatar(true)
+    try {
+      const preview = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result ?? ''))
+        reader.onerror = () => reject(new Error('The selected image could not be opened.'))
+        reader.readAsDataURL(file)
+      })
+      const response = await fetch('/api/users/me/profile/avatar', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+      const data = await response.json().catch(() => null) as { error?: string; avatarId?: string } | null
+      if (!response.ok || data?.avatarId !== 'upload') {
+        throw new Error(data?.error ?? 'Could not upload your avatar.')
+      }
+      setAvatarPreview(preview)
       setEquippedAvatar('upload')
-      setNotice('Custom avatar equipped for this session.')
+      setNotice('Custom avatar uploaded and equipped.')
       setActiveSection('overview')
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Could not upload your avatar.')
+    } finally {
+      setIsSavingAvatar(false)
     }
-    reader.onerror = () => setUploadError('The selected image could not be opened.')
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -236,7 +310,7 @@ export default function ProfileTab({
                   )}
                 </div>
                 <div className="pb-1">
-                  <p className="text-xs font-semibold uppercase tracking-widest capitalize" style={{ color: '#f0a097' }}>{user.role} account</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest capitalize" style={{ color: '#f0a097' }}>{profile.role} account</p>
                   <h1 className="mt-1 text-2xl font-semibold sm:text-3xl" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{name}</h1>
                   <p className="mt-1 text-xs" style={{ color: '#e8e4dc', opacity: .38 }}>
                     {equippedAvatar === 'upload' ? 'Custom avatar' : `${equippedOption?.name} · ${equippedOption?.tier}`}
@@ -245,14 +319,15 @@ export default function ProfileTab({
                     <button
                       type="button"
                       onClick={() => setActiveSection('avatars')}
+                      disabled={profileLoading || Boolean(profileError)}
                       className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-                      style={{ background: '#1c1e25', border: '1px solid #3a3d49', color: '#e8e4dc' }}
+                      style={{ background: '#1c1e25', border: '1px solid #3a3d49', color: '#e8e4dc', opacity: profileLoading || profileError ? .5 : 1 }}
                     >
                       Change avatar
                     </button>
                     <label
                       htmlFor="profile-avatar"
-                      className="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold"
+                      className={`${profileLoading || profileError || isSavingAvatar ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} rounded-lg px-3 py-1.5 text-xs font-semibold`}
                       style={{ background: 'rgba(192,57,43,.12)', border: '1px solid rgba(192,57,43,.38)', color: '#f0a097' }}
                     >
                       Upload image
@@ -261,6 +336,7 @@ export default function ProfileTab({
                       id="profile-avatar"
                       type="file"
                       accept="image/jpeg,image/png,image/webp"
+                      disabled={profileLoading || Boolean(profileError) || isSavingAvatar}
                       onChange={event => previewUpload(event.target.files?.[0])}
                       style={{
                         position: 'absolute',
@@ -283,6 +359,14 @@ export default function ProfileTab({
                 <strong className="text-lg" style={{ color: '#f0a097', fontFamily: 'var(--font-display)' }}>{chipBalance.toLocaleString()}</strong>
               </div>
             </div>
+
+            {profileError && (
+              <p role="alert" className="mt-4 rounded-lg px-4 py-3 text-xs" style={{ background: 'rgba(192,57,43,.1)', border: '1px solid rgba(192,57,43,.28)', color: '#f0a097' }}>
+                {profileError}
+              </p>
+            )}
+
+            {profileLoading && <p role="status" className="mt-4 text-xs" style={{ color: '#e8e4dc', opacity: .5 }}>Loading profile…</p>}
 
             {activeSection === 'overview' ? (
               <div className="mt-7 grid gap-5 lg:grid-cols-[1fr_.42fr]">
@@ -317,10 +401,10 @@ export default function ProfileTab({
                   <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Account</p>
                   <dl className="mt-4 space-y-4">
                     {[
-                      ['Username', user.username ?? 'Not set'],
-                      ['Email', user.email ?? 'Not set'],
-                      ['Status', user.status ?? 'active'],
-                      ['Access', user.role],
+                      ['Username', profile.username ?? 'Not set'],
+                      ['Email', profile.email ?? 'Not set'],
+                      ['Status', profile.status ?? 'active'],
+                      ['Access', profile.role],
                     ].map(([label, value]) => (
                       <div key={label}>
                         <dt className="text-xs" style={{ color: '#e8e4dc', opacity: .32 }}>{label}</dt>
@@ -379,7 +463,7 @@ export default function ProfileTab({
                         <button
                           type="button"
                           onClick={() => chooseAvatar(avatar)}
-                          disabled={equipped}
+                          disabled={equipped || profileLoading || Boolean(profileError) || isSavingAvatar}
                           className="w-full shrink-0 rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-55 sm:w-auto"
                           style={{
                             background: equipped ? '#252832' : owned ? '#1c1e25' : locked ? '#17191f' : `linear-gradient(135deg, ${avatar.accent}, #6b1010)`,
@@ -387,7 +471,7 @@ export default function ProfileTab({
                             color: equipped || owned || locked ? '#e8e4dc' : '#0a0a0b',
                           }}
                         >
-                          {equipped ? 'Equipped' : owned ? 'Equip avatar' : locked ? 'Locked' : `Buy for ${avatar.price?.toLocaleString()} chips`}
+                          {isSavingAvatar ? 'Saving…' : equipped ? 'Equipped' : owned ? 'Equip avatar' : locked ? 'Locked' : `Buy for ${avatar.price?.toLocaleString()} chips`}
                         </button>
                       </article>
                     )
