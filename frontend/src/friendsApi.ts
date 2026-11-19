@@ -39,3 +39,8 @@ export async function acceptFriendRequest(id: string): Promise<void> {
 export async function ignoreFriendRequest(id: string): Promise<void> {
   await apiRequest(`/api/friends/requests/${id}/decline`, { method: 'POST' })
 }
+
+// Remove someone from your friends list. friendId is their player id (Friend.id)
+export async function removeFriend(friendId: string): Promise<void> {
+  await apiRequest(`/api/friends/${friendId}`, { method: 'DELETE' })
+}

@@ -5,6 +5,7 @@ import {
   sendFriendRequest,
   acceptFriendRequest,
   ignoreFriendRequest,
+  removeFriend,
   type Friend,
   type FriendRequest,
 } from "../friendsApi.ts"
@@ -24,6 +25,10 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
   const [loadError, setLoadError] = useState('')
   const [sendError, setSendError] = useState('')
   const [sending, setSending] = useState(false)
+  // Removing a friend: which friend is showing "Remove?", which one is being removed, and the result message
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
+  const [removedMessage, setRemovedMessage] = useState('')
 
   const query = search.trim().toLowerCase()
   const visibleFriends = friends.filter(friend =>
@@ -75,6 +80,23 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
       if (accept) await loadAll()
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Could not answer the request')
+    }
+  }
+
+  async function confirmRemove(friend: Friend) {
+    if (removing) return
+    setRemoving(friend.id)
+    setRemovedMessage('')
+    try {
+      await removeFriend(friend.id)
+      setFriends(current => current.filter(f => f.id !== friend.id))
+      setRemovedMessage(`${friend.displayName} was removed from your friends`)
+      setLoadError('')
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'Could not remove that friend')
+    } finally {
+      setRemoving(null)
+      setConfirmingRemove(null)
     }
   }
 
@@ -132,8 +154,14 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
         </div>
 
         {loadError && (
-          <p role="alert" className="mx-6 mt-4 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.35)', color: '#f0a097' }}>
+          <p role="alert" className="rounded-xl px-4 py-3 text-sm" style={{ margin: '16px 24px 0', background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.35)', color: '#f0a097' }}>
             {loadError}
+          </p>
+        )}
+
+        {removedMessage && activeTab === 'friends' && (
+          <p role="status" className="rounded-xl px-4 py-3 text-sm" style={{ margin: '16px 24px 0', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#86efac' }}>
+            {removedMessage}
           </p>
         )}
 
@@ -177,6 +205,43 @@ export function FriendsPage({ onBack, onJoinTable }: { onBack: () => void; onJoi
                           style={{ background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.35)', color: '#f0a097' }}
                         >
                           Join
+                        </button>
+                      )}
+                      {/* Remove a friend. It asks first, so one misclick doesn't unfriend someone */}
+                      {confirmingRemove === friend.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.55 }}>Remove?</span>
+                          <button
+                            onClick={() => confirmRemove(friend)}
+                            disabled={removing === friend.id}
+                            className="rounded-lg border-0 px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                            style={{ background: '#c0392b', color: '#fff' }}
+                            aria-label={`Yes, remove ${friend.displayName}`}
+                          >
+                            {removing === friend.id ? 'Removing' : 'Yes'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmingRemove(null)}
+                            disabled={removing === friend.id}
+                            className="rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                            style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }}
+                            aria-label={`Keep ${friend.displayName}`}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setConfirmingRemove(friend.id)
+                            setRemovedMessage('')
+                          }}
+                          disabled={Boolean(removing)}
+                          className="rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                          style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }}
+                          aria-label={`Remove ${friend.displayName}`}
+                        >
+                          Remove
                         </button>
                       )}
                     </div>

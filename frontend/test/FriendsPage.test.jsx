@@ -28,6 +28,7 @@ function installFetch({ friends = FRIENDS, requests = REQUESTS, overrides = {} }
     if (key === 'GET /api/friends') return reply({ friends })
     if (key === 'GET /api/friends/requests') return reply({ requests: pending })
     if (key === 'POST /api/friends/requests') return reply({ message: 'Friend request sent to Theo' })
+    if (key === 'DELETE /api/friends/f1' || key === 'DELETE /api/friends/f2') return reply({ message: 'Friend removed' })
     if (key === 'POST /api/friends/requests/r1/accept' || key === 'POST /api/friends/requests/r1/decline') {
       pending = pending.filter(r => r.id !== 'r1')
       return reply({ message: 'ok' })
@@ -148,7 +149,7 @@ describe('Friends tab', () => {
   test('a friend who is not at a table has no Join button', async () => {
     await setup()
     const row = screen.getByText('Ayana').closest('div.rounded-xl')
-    expect(within(row).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Join' })).not.toBeInTheDocument()
   })
 
   test('no Join button if the page was opened without a way to join', async () => {
@@ -303,5 +304,117 @@ describe('Invite tab (send a friend request)', () => {
     await openInvite()
     fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
     expect(screen.getByText('Invite link copied to your clipboard.')).toBeInTheDocument()
+  })
+})
+
+describe('Removing a friend (P11)', () => {
+  const removeButton = name => screen.getByRole('button', { name: `Remove ${name}` })
+  const yesButton = name => screen.getByRole('button', { name: `Yes, remove ${name}` })
+  const cancelButton = name => screen.getByRole('button', { name: `Keep ${name}` })
+
+  test('every friend has a Remove button', async () => {
+    await setup()
+    expect(removeButton('Josue S')).toBeInTheDocument()
+    expect(removeButton('Ayana')).toBeInTheDocument()
+  })
+
+  test('clicking Remove asks first and does not remove yet', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    expect(screen.getByText('Remove?')).toBeInTheDocument()
+    expect(yesButton('Ayana')).toBeInTheDocument()
+    expect(calls('DELETE /api/friends/f2')).toHaveLength(0)
+  })
+
+  test('Cancel keeps the friend', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(cancelButton('Ayana'))
+    expect(screen.queryByText('Remove?')).not.toBeInTheDocument()
+    expect(screen.getByText('Ayana')).toBeInTheDocument()
+    expect(calls('DELETE /api/friends/f2')).toHaveLength(0)
+  })
+
+  test('Yes tells the server, takes them off the list and says so', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Ayana was removed from your friends')
+    expect(screen.queryByRole('button', { name: 'Remove Ayana' })).not.toBeInTheDocument()
+    expect(screen.getByText('Josue S')).toBeInTheDocument()
+    expect(tab('Friends')).toHaveTextContent('Friends 1')
+    const [[, options]] = calls('DELETE /api/friends/f2')
+    expect(options.credentials).toBe('include')
+  })
+
+  test('removing a friend who is playing updates the header count', async () => {
+    await setup()
+    expect(screen.getByText('1 friend is at the tables now')).toBeInTheDocument()
+    fireEvent.click(removeButton('Josue S'))
+    fireEvent.click(yesButton('Josue S'))
+    expect(await screen.findByText('0 friends are at the tables now')).toBeInTheDocument()
+  })
+
+  test('only one friend asks "Remove?" at a time', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(removeButton('Josue S'))
+    expect(screen.getAllByText('Remove?')).toHaveLength(1)
+    expect(yesButton('Josue S')).toBeInTheDocument()
+    expect(removeButton('Ayana')).toBeInTheDocument()
+  })
+
+  test('the Yes button says Removing and blocks double clicks while waiting', async () => {
+    let finish
+    await setup({ overrides: { 'DELETE /api/friends/f2': () => new Promise(resolve => { finish = resolve }) } })
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+
+    expect(yesButton('Ayana')).toHaveTextContent('Removing')
+    expect(yesButton('Ayana')).toBeDisabled()
+    expect(cancelButton('Ayana')).toBeDisabled()
+    expect(removeButton('Josue S')).toBeDisabled()
+    fireEvent.click(yesButton('Ayana'))
+    expect(calls('DELETE /api/friends/f2')).toHaveLength(1)
+
+    finish({ ok: true, json: () => Promise.resolve({ message: 'Friend removed' }) })
+    expect(await screen.findByRole('status')).toHaveTextContent('Ayana was removed')
+  })
+
+  test('a failed remove shows the error and keeps the friend', async () => {
+    await setup({ overrides: { 'DELETE /api/friends/f2': () => reply({ error: 'You are not friends with that player' }, false) } })
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('You are not friends with that player')
+    expect(screen.getByText('Ayana')).toBeInTheDocument()
+    expect(removeButton('Ayana')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  test('a failure that is not a normal error uses a fallback', async () => {
+    await setup({ overrides: { 'DELETE /api/friends/f2': () => Promise.reject('down') } })
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not remove that friend')
+  })
+
+  test('the removed message clears when you start removing someone else', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+    await screen.findByRole('status')
+    fireEvent.click(removeButton('Josue S'))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  test('the removed message only shows on the Friends tab', async () => {
+    await setup()
+    fireEvent.click(removeButton('Ayana'))
+    fireEvent.click(yesButton('Ayana'))
+    await screen.findByRole('status')
+    fireEvent.click(tab('Requests'))
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
