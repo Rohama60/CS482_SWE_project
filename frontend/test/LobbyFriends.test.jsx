@@ -29,6 +29,7 @@ function installFetch({ requests = [], requestsOk = true } = {}) {
     if (key === 'GET /api/tables/mine') return reply({ tables: [] })
     if (key === 'GET /api/friends') return reply({ friends: [FRIEND] })
     if (key === 'GET /api/friends/requests') return requestsOk ? reply({ requests }) : reply({ error: 'nope' }, false)
+    if (key === 'GET /api/history') return reply({ stats: { hands: 1, wins: 1, losses: 0, winRate: 100, netChips: 40 }, games: [] })
     return reply({ error: `Unhandled ${key}` }, false)
   })
 }
@@ -99,5 +100,31 @@ describe('Joining a friend from the Friends page (P11)', () => {
     fireEvent.click(friendsButton())
     fireEvent.click(await screen.findByRole('button', { name: /Back to lobby/ }))
     expect(await screen.findByRole('button', { name: /Friends/ })).toBeInTheDocument()
+  })
+})
+
+describe('History button (P13)', () => {
+  test('members have a History button that opens their game history', async () => {
+    await setup()
+    fireEvent.click(screen.getByRole('button', { name: /History/ }))
+    expect(await screen.findByRole('heading', { name: 'Game History' })).toBeInTheDocument()
+    expect(await screen.findByText('No games yet')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledWith('/api/history', expect.anything())
+  })
+
+  test('Back to lobby from History returns to the lobby', async () => {
+    await setup()
+    fireEvent.click(screen.getByRole('button', { name: /History/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Back to lobby/ }))
+    expect(await screen.findByText('Game Lobby')).toBeInTheDocument()
+  })
+
+  test('guests do not see a History button', async () => {
+    authClient.useSession.mockReturnValue({ data: null })
+    getGuest.mockReturnValue(null)
+    installFetch()
+    render(<Lobby onBack={jest.fn()} onJoin={jest.fn()} onSpectate={jest.fn()} onSignUp={jest.fn()} />)
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/tables'))
+    expect(screen.queryByRole('button', { name: /History/ })).not.toBeInTheDocument()
   })
 })

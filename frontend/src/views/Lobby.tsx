@@ -5,6 +5,7 @@ import { getGuest } from '../guestSession.ts'
 import { joinTable, joinTableByCode, spectateTable } from '../tableJoin.ts'
 import { ComplaintForm } from '../components/ComplaintForm.tsx'
 import { FriendsPage } from './FriendsPage.tsx'
+import { HistoryPage } from './HistoryPage.tsx'
 import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 import { AdSlot } from '../components/lobby/AdSlot'
@@ -42,6 +43,8 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile }: Lobby
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  // P13: the Game History page
+  const [showHistory, setShowHistory] = useState(false)
   // P11: how many friend requests are waiting, for the badge on the Friends button
   const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
@@ -331,6 +334,10 @@ async function handleSignOut() {
   }
 }
 
+if (showHistory && isAuthenticated) {
+    return <HistoryPage onBack={() => setShowHistory(false)} />
+  }
+
 if (showFriends && isAuthenticated) {
     return (
       <FriendsPage
@@ -506,6 +513,17 @@ return (
           </div>
 
           <div className="flex items-center gap-2">
+            {/* P13: your finished hands and stats */}
+            {isAuthenticated && (
+              <button
+                onClick={() => setShowHistory(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+                style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #3a3d49' }}
+              >
+                <span aria-hidden="true">🕘</span>
+                History
+              </button>
+            )}
             {isAuthenticated && (
               <button
                 onClick={() => setShowFriends(true)}
