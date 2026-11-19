@@ -7,6 +7,8 @@ import { socket } from '../socket'
 export const MEMBERS_ONLY = 'Members Only! Sign up to chat'
 export const SEATED_ONLY = 'Take a seat at the table to chat'
 export const MAX_MESSAGE_LENGTH = 200
+// How close to the bottom (in pixels) still counts as "at the bottom"
+export const STICK_TO_BOTTOM_PX = 40
 
 export type ChatMessage = {
   id: string
@@ -30,6 +32,9 @@ export function TableChat({ tableId, isMember, isSeated, myName }: TableChatProp
   const [noticeVisible, setNoticeVisible] = useState(false)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   const listRef = useRef<HTMLDivElement>(null)
+  // True while you're looking at the newest messages. Scrolling up turns it off,
+  // so new messages don't yank you back down while you read older ones.
+  const atBottom = useRef(true)
 
   const canSend = isMember && isSeated
   const blockedMessage = !isMember ? MEMBERS_ONLY : SEATED_ONLY
@@ -78,9 +83,17 @@ export function TableChat({ tableId, isMember, isSeated, myName }: TableChatProp
   // Stop any fade timers if the table closes
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  // Keep the newest message in view
+  // Remember if you're at the bottom of the chat or scrolled up reading
+  function handleScroll() {
+    const list = listRef.current
+    if (!list) return
+    atBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight <= STICK_TO_BOTTOM_PX
+  }
+
+  // Keep the newest message in view, unless you scrolled up to read
   useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
+    const list = listRef.current
+    if (list && atBottom.current) list.scrollTop = list.scrollHeight
   }, [messages])
 
   function send() {
@@ -95,22 +108,35 @@ export function TableChat({ tableId, isMember, isSeated, myName }: TableChatProp
   }
 
   return (
-    <div className="relative flex-1 rounded-2xl border p-4" style={{ background: '#14161b', borderColor: '#292c35' }}>
+    <div className="relative flex-1 rounded-2xl border p-4" style={{ display: 'flex', flexDirection: 'column', background: '#14161b', borderColor: '#292c35' }}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table Chat</p>
         <span className="text-xs font-semibold" style={{ color: '#e8e4dc', opacity: 0.35 }}>{online ?? 1} online</span>
       </div>
 
-      <div ref={listRef} className="mt-4 flex max-h-44 flex-col gap-3 overflow-y-auto pr-1" aria-live="polite">
+      {/* The messages fill whatever space the chat panel has, so there's no empty gap under the box.
+          The list sits inside this area instead of setting its height, so lots of messages scroll
+          instead of stretching the panel. (The project has no Tailwind, so these styles are set here.) */}
+      <div className="mt-4" style={{ position: 'relative', flex: '1 1 auto', minHeight: '11rem' }}>
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="flex flex-col gap-3 pr-1"
+        style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}
+        aria-live="polite"
+        aria-label="Chat messages"
+        data-testid="chat-messages"
+      >
         {messages.length === 0 && (
-          <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.3 }}>No messages yet.</p>
+          <p className="text-xs" style={{ margin: 0, color: '#e8e4dc', opacity: 0.3 }}>No messages yet.</p>
         )}
         {messages.map(message => (
           <div key={message.id}>
-            <p className="text-xs font-semibold" style={{ color: message.name === myName ? '#f0a097' : '#e8e4dc' }}>{message.name}</p>
-            <p className="mt-0.5 text-xs leading-relaxed break-words" style={{ color: '#e8e4dc', opacity: 0.48 }}>{message.message}</p>
+            <p className="text-xs font-semibold" style={{ margin: 0, color: message.name === myName ? '#f0a097' : '#e8e4dc' }}>{message.name}</p>
+            <p className="text-xs leading-relaxed" style={{ margin: '2px 0 0', color: '#e8e4dc', opacity: 0.48, overflowWrap: 'anywhere' }}>{message.message}</p>
           </div>
         ))}
+      </div>
       </div>
 
       <div className="mt-4 flex gap-2 border-t pt-3" style={{ borderColor: '#292c35' }}>

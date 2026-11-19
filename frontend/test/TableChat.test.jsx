@@ -233,3 +233,79 @@ describe('Members who are only watching (M3)', () => {
     expect(box()).toHaveAttribute('readOnly')
   })
 })
+
+// Scrolling: the message list stays a fixed size and scrolls once there are lots of messages.
+// The test browser has no real layout, so each test sets the list's sizes by hand.
+const messageList = () => screen.getByTestId('chat-messages')
+
+function sizeList(list, { scrollHeight, clientHeight = 176, scrollTop = 0 }) {
+  Object.defineProperty(list, 'scrollHeight', { configurable: true, value: scrollHeight })
+  Object.defineProperty(list, 'clientHeight', { configurable: true, value: clientHeight })
+  list.scrollTop = scrollTop
+}
+
+const liveMessage = n => ({ id: `live-${n}`, name: 'Josue', message: `message ${n}` })
+
+describe('Scrolling the chat', () => {
+  test('the message list scrolls inside its area instead of stretching the chat', async () => {
+    await setup()
+    expect(messageList()).toHaveStyle({ position: 'absolute', overflowY: 'auto' })
+  })
+
+  test('the message area fills the chat panel but never gets smaller than 11rem', async () => {
+    await setup()
+    expect(messageList().parentElement).toHaveStyle({ flex: '1 1 auto', minHeight: '11rem' })
+  })
+
+  test('opening the table jumps to the newest message', async () => {
+    installFetch()
+    render(<TableChat tableId="t1" isMember isSeated myName="Preston" />)
+    sizeList(messageList(), { scrollHeight: 600 })
+    expect(await screen.findByText('good luck')).toBeInTheDocument()
+    expect(messageList().scrollTop).toBe(600)
+  })
+
+  test('a new message scrolls down when you are at the bottom', async () => {
+    await setup()
+    await screen.findByText('good luck')
+    const list = messageList()
+    sizeList(list, { scrollHeight: 800, scrollTop: 624 }) // 800 - 176 = the very bottom
+    fireEvent.scroll(list)
+
+    sizeList(list, { scrollHeight: 900, scrollTop: 624 })
+    serverSends('chat:message', liveMessage(1))
+    expect(list.scrollTop).toBe(900)
+  })
+
+  test('a new message does not move you while you scroll up to read', async () => {
+    await setup()
+    await screen.findByText('good luck')
+    const list = messageList()
+    sizeList(list, { scrollHeight: 800, scrollTop: 100 }) // way above the bottom
+    fireEvent.scroll(list)
+
+    sizeList(list, { scrollHeight: 900, scrollTop: 100 })
+    serverSends('chat:message', liveMessage(1))
+    expect(list.scrollTop).toBe(100)
+  })
+
+  test('scrolling back to the bottom turns auto-scroll back on', async () => {
+    await setup()
+    await screen.findByText('good luck')
+    const list = messageList()
+    sizeList(list, { scrollHeight: 800, scrollTop: 100 })
+    fireEvent.scroll(list)
+    sizeList(list, { scrollHeight: 800, scrollTop: 600 }) // within 40px of the bottom
+    fireEvent.scroll(list)
+
+    sizeList(list, { scrollHeight: 900, scrollTop: 600 })
+    serverSends('chat:message', liveMessage(1))
+    expect(list.scrollTop).toBe(900)
+  })
+
+  test('long words wrap instead of stretching the chat box', async () => {
+    installFetch({ body: { messages: [{ id: 'long', name: 'Josue', message: 'a'.repeat(200) }] } })
+    render(<TableChat tableId="t1" isMember isSeated myName="Preston" />)
+    expect(await screen.findByText('a'.repeat(200))).toHaveStyle({ overflowWrap: 'anywhere' })
+  })
+})
