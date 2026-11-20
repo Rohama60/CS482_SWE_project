@@ -19,19 +19,12 @@ const pokerGameSchema = new mongoose.Schema({
         ref: 'Table',
         required: true,
     },
-    smallBlind: { type: Number, required: true },
-
-    bigBlind: { type: Number, required: true },
+    ante: { type: Number, required: true },
 
     potSize: {type: Number, default: 0},
 
-    smallBlindPlayerId: {
-        type: String
-    },
-
-    bigBlindPlayerId: {
-        type: String
-    },
+    handStartIndex: { type: Number, default: 0 },
+    handStartPlayerId: { type: String },
 
     currentBet: {
         type: Number,

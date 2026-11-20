@@ -64,14 +64,14 @@ function putInPot(state, player, amount) {
 /**
  * Starts a hand. `participants` is everyone at the table in seat order:
  * [{ refId, kind: 'user' | 'guest' | 'bot', displayName, chips, style? }].
- * `rotate` moves the blinds one seat each hand. Returns a new state.
+ * Every player posts the same ante. `rotate` rotates the starting seat each hand.
  */
-export function startHand({ participants, smallBlind, bigBlind, deck, rotate = 0 }) {
+export function startHand({ participants, ante = 0, smallBlind, bigBlind, deck, rotate = 0 }) {
     const count = participants.length;
     if (count < 2) throw new GameRuleError('At least two players are required to start a game');
 
-    const shift = ((rotate % count) + count) % count;
-    const ordered = [...participants.slice(shift), ...participants.slice(0, shift)].map(p => ({
+    // Keep the participant array in its real seat order.  Only the cursor rotates.
+    const ordered = participants.map(p => ({
         refId: String(p.refId),
         kind: p.kind,
         displayName: p.displayName,
@@ -81,14 +81,17 @@ export function startHand({ participants, smallBlind, bigBlind, deck, rotate = 0
         acted: false,
         drawn: false,
     }));
+    const minimum = Number.isInteger(ante) && ante >= 0
+        ? ante
+        : (Number.isInteger(smallBlind) ? smallBlind : 0);
+    const startIndex = ((rotate % count) + count) % count;
 
     const state = {
         round: 'betting1',
         participants: ordered,
-        smallBlind,
-        bigBlind,
-        smallBlindPlayerId: ordered[0].refId,
-        bigBlindPlayerId: ordered[1].refId,
+        ante: minimum,
+        handStartIndex: startIndex,
+        handStartPlayerId: ordered[startIndex].refId,
         potSize: 0,
         currentBet: 0,
         currentTurn: null,
@@ -103,14 +106,13 @@ export function startHand({ participants, smallBlind, bigBlind, deck, rotate = 0
         lastAction: null,
     };
 
-    putInPot(state, ordered[0], smallBlind);
-    putInPot(state, ordered[1], bigBlind);
-    state.currentBet = Math.max(state.playerBets[ordered[0].refId], state.playerBets[ordered[1].refId]);
+    for (const player of ordered) putInPot(state, player, minimum);
+    state.currentBet = 0;
 
-    // With two players the small blind acts first. With more, the seat after the big blind does.
-    const first = firstFrom(state, 2 % count, canAct);
+    // The chosen starting seat acts first, then seats proceed in left/clockwise order.
+    const first = firstFrom(state, startIndex, canAct);
     if (first) state.currentTurn = first.refId;
-    else settleRoundEnd(state); // everyone is already all-in from the blinds
+    else settleRoundEnd(state); // all players posted the ante and were reduced to all-in
 
     return state;
 }
@@ -126,7 +128,8 @@ export function getLegalActions(state, refId) {
     const myBet = state.playerBets[refId] ?? 0;
     const toCall = Math.max(0, state.currentBet - myBet);
     const afterCall = player.chips - toCall;
-    const canRaise = state.raisesThisRound < MAX_RAISES_PER_ROUND && afterCall >= state.bigBlind;
+    const minimumBid = state.ante > 0 ? state.ante : 1;
+    const canRaise = state.raisesThisRound < MAX_RAISES_PER_ROUND && afterCall >= minimumBid;
 
     return {
         canAct: true,
@@ -134,7 +137,7 @@ export function getLegalActions(state, refId) {
         canCheck: toCall === 0,
         canCall: toCall > 0,
         canRaise,
-        minRaise: state.bigBlind,
+        minRaise: minimumBid,
         maxRaise: canRaise ? afterCall : 0, // biggest amount you can raise BY
         isAllInCall: toCall >= player.chips && toCall > 0,
     };
@@ -230,7 +233,7 @@ function settleRoundEnd(state) {
 
     if (state.round === 'betting1') {
         state.round = 'drawing';
-        const first = firstFrom(state, 0, p => isLive(p) && !p.drawn);
+        const first = firstFrom(state, state.handStartIndex ?? 0, p => isLive(p) && !p.drawn);
         state.currentTurn = first.refId;
     } else {
         showdown(state);
@@ -331,7 +334,7 @@ export function applyDraw(state, refId, discardIndexes) {
         p.acted = false;
     }
 
-    const first = firstFrom(state, 0, canAct);
+    const first = firstFrom(state, state.handStartIndex ?? 0, canAct);
 
     if (first && state.participants.filter(canAct).length > 1) {
         state.currentTurn = first.refId;
@@ -462,10 +465,9 @@ export function toPublicState(state) {
     }
     return {
         round: state.round,
-        smallBlind: state.smallBlind,
-        bigBlind: state.bigBlind,
-        smallBlindPlayerId: state.smallBlindPlayerId,
-        bigBlindPlayerId: state.bigBlindPlayerId,
+        ante: state.ante,
+        handStartIndex: state.handStartIndex,
+        handStartPlayerId: state.handStartPlayerId,
         potSize: state.potSize,
         currentBet: state.currentBet,
         currentTurn: state.currentTurn,

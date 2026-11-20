@@ -3,7 +3,7 @@ import {
     createGameService,
     GameConflictError,
     GameNotFoundError,
-    BLIND_BY_STAKE
+    ANTE_BY_STAKE
 } from '../src/services/GameService.js';
 import { GameRuleError } from '../game/PokerEngine.js';
 
@@ -79,11 +79,11 @@ describe('exports', () => {
         expect(new GameNotFoundError('x')).toBeInstanceOf(Error);
     });
 
-    test('blind sizes for each stake', () => {
-        expect(BLIND_BY_STAKE).toEqual({
-            low: { small: 1, big: 2 },
-            medium: { small: 5, big: 10 },
-            high: { small: 25, big: 50 }
+    test('ante sizes for each stake', () => {
+        expect(ANTE_BY_STAKE).toEqual({
+            low: 1,
+            medium: 5,
+            high: 25
         });
     });
 });
@@ -117,8 +117,8 @@ describe('startGame', () => {
         expect(game.engine.participants).toHaveLength(2);
     });
 
-    test('rejects a human who cannot cover the big blind', async () => {
-        const h = buildHarness({ balances: { h1: 9 } });
+    test('rejects a human who cannot cover the ante', async () => {
+        const h = buildHarness({ balances: { h1: 4 } });
 
         await expect(h.service.startGame('t1')).rejects.toThrow('enough chips');
         expect(h.tableDao.startTableGame).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe('startGame', () => {
         await expect(h.service.startGame('t1')).rejects.toThrow('enough chips');
     });
 
-    test('deals the human plus every bot in and posts the blinds', async () => {
+    test('deals the human plus every bot in and collects the ante', async () => {
         const h = buildHarness({ table: { bots: 2 } });
 
         const game = await h.service.startGame('t1');
@@ -140,11 +140,11 @@ describe('startGame', () => {
         expect(e.participants[1].kind).toBe('bot');
         expect(e.participants[1].displayName).toContain('(CPU)');
         expect(e.round).toBe('betting1');
-        expect(e.potSize).toBe(15);                 // 5 + 10
+        expect(e.potSize).toBe(15);                 // 5 from each of 3 players
         expect(Object.keys(e.hands)).toHaveLength(3);
         for (const id of Object.keys(e.hands)) expect(e.hands[id]).toHaveLength(5);
-        expect(e.smallBlindPlayerId).toBe('h1');
-        expect(e.bigBlindPlayerId).toBe('bot-1');
+        expect(e.handStartPlayerId).toBe('h1');
+        expect(e.ante).toBe(5);
     });
 
     test('marks the table busy and tells the room', async () => {
@@ -162,35 +162,34 @@ describe('startGame', () => {
 
         const game = await h.service.startGame('t1');
 
-        expect(game.startChips).toEqual({ h1: 1000 });
+        expect(game.startChips).toEqual({ h1: 500 });
         expect(game.settled).toBe(false);
     });
 
-    test('caps a human stack at 100 big blinds', async () => {
+    test('caps a human stack at 100 antes', async () => {
         const h = buildHarness({ balances: { h1: 1000000 } });
 
         const game = await h.service.startGame('t1');
 
-        expect(game.startChips.h1).toBe(1000);       // 100 x 10
+        expect(game.startChips.h1).toBe(500);        // 100 x $5 ante
     });
 
-    test('gives each bot a fresh 100 big blind stack', async () => {
+    test('gives each bot a fresh 100-ante stack', async () => {
         const h = buildHarness();
 
         const game = await h.service.startGame('t1');
         const bot = game.engine.participants.find(p => p.refId === 'bot-1');
 
-        // bot is the big blind heads-up, so it has already posted 10
-        expect(bot.chips + game.engine.playerBets['bot-1']).toBe(1000);
+        // bot already posted the medium ante
+        expect(bot.chips + game.engine.playerBets['bot-1']).toBe(500);
     });
 
-    test('blinds rotate with the number of hands played at the table', async () => {
+    test('first turn rotates with the number of hands played at the table', async () => {
         const h = buildHarness({ table: { hands: 1 } });
 
         const game = await h.service.startGame('t1');
 
-        expect(game.engine.smallBlindPlayerId).toBe('bot-1');
-        expect(game.engine.bigBlindPlayerId).toBe('h1');
+        expect(game.engine.handStartPlayerId).toBe('bot-1');
     });
 
     test('refuses to start a second game while one is running', async () => {
@@ -237,7 +236,7 @@ describe('viewFor', () => {
 
         expect(view.myHand).toHaveLength(5);
         expect(view.myHand).toEqual(game.engine.hands.h1);
-        expect(view.legal.canAct).toBe(true);        // small blind acts first heads-up
+        expect(view.legal.canAct).toBe(true);        // first seat acts first heads-up
         expect(view.myTurnToDraw).toBe(false);
         expect(view.finished).toBe(false);
         expect(view._id).toBe('g1');
@@ -298,9 +297,9 @@ describe('act (betting)', () => {
         const game = await h.service.startGame('t1');
         h.emit.mockClear();
 
-        const after = await h.service.act(game._id, HUMAN, { type: 'call' });
+        const after = await h.service.act(game._id, HUMAN, { type: 'check' });
 
-        expect(after.engine.lastAction).toEqual({ playerId: 'h1', type: 'call', amount: 5 });
+        expect(after.engine.lastAction).toEqual({ playerId: 'h1', type: 'check', amount: 0 });
         expect(h.gameDao.updatePokerGame).toHaveBeenCalledWith(
             'g1',
             expect.objectContaining({
@@ -324,7 +323,7 @@ describe('act (betting)', () => {
         const h = buildHarness();
         const game = await h.service.startGame('t1');
 
-        await expect(h.service.act(game._id, HUMAN, { type: 'check' }))   // there is a bet to call
+        await expect(h.service.act(game._id, HUMAN, { type: 'raise', amount: 2 }))
             .rejects.toBeInstanceOf(GameRuleError);
     });
 
@@ -343,7 +342,7 @@ describe('act (betting)', () => {
 
         expect(after.engine.round).toBe('finished');
         expect(after.settled).toBe(true);
-        // human was the small blind and folded: loses 5
+        // human posted the ante and folded: loses 5
         expect(h.chipDao.addChips).toHaveBeenCalledWith({ kind: 'guest', refId: 'h1' }, -5, 'session');
         expect(h.balances.h1).toBe(995);
         expect(h.tableDao.finishTableGame).toHaveBeenCalledWith('t1', 'session');
@@ -353,7 +352,7 @@ describe('act (betting)', () => {
     });
 
     test('pays the human when everyone else has folded', async () => {
-        const h = buildHarness({ table: { hands: 1 } });   // human is the big blind, bot acts first
+        const h = buildHarness({ table: { hands: 1 } });   // bot acts first on the next hand
         const game = await h.service.startGame('t1');
         patchEngine(h.games, e => {
             e.participants.find(p => p.refId === 'bot-1').folded = true;
@@ -363,16 +362,16 @@ describe('act (betting)', () => {
         const after = await h.service.act(game._id, HUMAN, { type: 'check' });
 
         expect(after.engine.round).toBe('finished');
-        // started with 1000, posted the 10 big blind, wins the 15 pot: +5
+        // started with 1000, posted a 5 ante, wins the 10 pot: +5
         expect(h.chipDao.addChips).toHaveBeenCalledWith(
     { kind: 'guest', refId: 'h1' },
-        -10,
-        'session'
-    );
+    -5,
+    'session'
+        );
 
     expect(h.chipDao.addChips).toHaveBeenCalledWith(
         { kind: 'guest', refId: 'h1' },
-        15,
+        10,
         'session'
     );
         expect(h.balances.h1).toBe(1005);
@@ -541,7 +540,7 @@ describe('runBots', () => {
     });
 
     test('plays the bots turn after a pause, then waits for the human', async () => {
-        const h = buildHarness({ table: { hands: 1 } });   // bot is the small blind and acts first
+        const h = buildHarness({ table: { hands: 1 } });   // bot starts and acts first
         await h.service.startGame('t1');
 
         await h.service.runBots('g1');
@@ -634,7 +633,7 @@ describe('whole hands against bots', () => {
             expect(h.tableDoc.gameInProgress).toBe(false);
             // nothing created or destroyed: stacks add up to what everyone brought
             const total = e.participants.reduce((sum, p) => sum + p.chips, 0);
-            expect(total).toBe(done.startChips.h1 + 2 * 1000);
+            expect(total).toBe(done.startChips.h1 + 2 * 500);
             // the human's real balance moved by exactly their win or loss
             const me = e.participants.find(p => p.refId === 'h1');
             expect(h.balances.h1 - before).toBe(me.chips - done.startChips.h1);

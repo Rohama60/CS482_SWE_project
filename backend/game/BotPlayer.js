@@ -37,7 +37,7 @@ export function decideBet(state, refId, rng = Math.random) {
     const wantsRaise = legal.canRaise && (score + style.raiseBias > 0.62 || roll < style.bluff * (legal.canCheck ? 1 : 0.4));
 
     if (wantsRaise) {
-        const size = Math.min(legal.maxRaise, state.bigBlind * (1 + Math.floor(rng() * 3)));
+        const size = Math.min(legal.maxRaise, (state.ante || 1) * (1 + Math.floor(rng() * 3)));
         const amount = Math.max(legal.minRaise, size);
         if (amount <= legal.maxRaise) return { type: 'raise', amount };
     }

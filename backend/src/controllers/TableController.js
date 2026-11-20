@@ -9,7 +9,7 @@ function withInviteCode(table) {
     json.inviteCode = table.inviteCode ?? null;
     return json;
 }
-const BLIND_BY_STAKE = { low: '1 / 2', medium: '5 / 10', high: '25 / 50' };
+const ANTE_BY_STAKE = { low: '$1 ante', medium: '$5 ante', high: '$25 ante' };
 
 export async function CreateTableController(req, res) {
     const session = await auth.api.getSession({ 
@@ -30,7 +30,7 @@ export async function CreateTableController(req, res) {
     if (!name || !stakes || !seats) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
-    if (!BLIND_BY_STAKE[stakes]) {
+    if (!ANTE_BY_STAKE[stakes]) {
         return res.status(400).json({ error: 'Invalid stakes' });
     }
     if (!Number.isInteger(seats) || seats < 2 || seats > 6) {
@@ -46,7 +46,7 @@ export async function CreateTableController(req, res) {
     const newTable = await createTable({
         name: name.trim(),
         stakes,
-        blind: BLIND_BY_STAKE[stakes],   // set on the server, not trusted from the client
+        blind: ANTE_BY_STAKE[stakes],   // set on the server, not trusted from the client
         max: seats,
         players,
         bots,
@@ -158,10 +158,10 @@ export async function UpdateTableController(req, res) {
             });
         }
 
-        const blindByStake = {
-            low: '1 / 2',
-            medium: '5 / 10',
-            high: '25 / 50'
+        const anteByStake = {
+            low: '$1 ante',
+            medium: '$5 ante',
+            high: '$25 ante'
         };
 
         if (
@@ -188,7 +188,7 @@ export async function UpdateTableController(req, res) {
             max,
             bots,
             isPrivate,
-            blind: blindByStake[stakes]
+            blind: anteByStake[stakes]
         };
         // P7: a table switched to private needs a code
         if (isPrivate && !table.inviteCode) {

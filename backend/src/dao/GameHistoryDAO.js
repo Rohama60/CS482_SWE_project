@@ -10,7 +10,7 @@ export const MAX_HANDS = 500;
 export async function findFinishedHandsFor(refId, limit = MAX_HANDS) {
     return await BotGame.find(
         { settled: true, 'engine.participants.refId': String(refId) },
-        'tableId engine.participants engine.winners engine.resultText startChips handNumber bigBlind createdAt updatedAt'
+        'tableId engine.participants engine.winners engine.resultText startChips handNumber ante createdAt updatedAt'
     )
         .sort({ updatedAt: -1 })
         .limit(limit)

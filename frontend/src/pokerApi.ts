@@ -30,10 +30,9 @@ export type LegalActions = {
 }
 export type GameState = {
   _id: string
-  smallBlind: number
-  bigBlind: number
-  smallBlindPlayerId: string
-  bigBlindPlayerId: string
+  ante: number
+  handStartIndex: number
+  handStartPlayerId: string
   currentBet: number
   currentTurn: string
   playerBets: Record<string, number>

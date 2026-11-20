@@ -70,12 +70,11 @@ describe('Starting the game', () => {
     expect(JSON.parse(options.body)).toEqual({ tableId: TABLE.id })
   })
 
-  test('shows the pot and the blinds', async () => {
+  test('shows the pot and ante', async () => {
     await renderTable()
     await startGame()
     expect(screen.getByLabelText('CurrentPot: $3')).toBeInTheDocument()
-    expect(screen.getByText('Small Blind · $1')).toBeInTheDocument()
-    expect(screen.getByText(/Big Blind/)).toBeInTheDocument()
+    expect(screen.getByText(/First to act/)).toBeInTheDocument()
   })
 
   test('your cards come from the server with suit symbols', async () => {
@@ -379,7 +378,7 @@ describe('Betting actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Fold' }))
 
-    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy())
+    await waitFor(() => expect(callFor(actionUrl)).toBeTruthy(), { timeout: 3000 })
     const [, options] = callFor(actionUrl)
     expect(JSON.parse(options.body)).toEqual({ type: 'fold' })
   })

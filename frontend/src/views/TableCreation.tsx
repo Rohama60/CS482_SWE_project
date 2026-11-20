@@ -80,7 +80,7 @@ export function TableCreation({
     setBotsCount(c => Math.min(c, n - 1))
   }
 
-  const blindByStake = { low: '1 / 2', medium: '5 / 10', high: '25 / 50' }
+  const anteByStake = { low: '$1', medium: '$5', high: '$25' }
   const buyInByStake = { low: '$100', medium: '$500', high: '$2,500' }
   const tableName = name.trim() || 'Untitled Table'
 
@@ -172,7 +172,7 @@ export function TableCreation({
                       aria-pressed={stakes === level}
                     >
                       <span className="d-block text-xs font-semibold">{level === 'medium' ? 'Mid' : level[0].toUpperCase() + level.slice(1)}</span>
-                      <span className="d-block mt-1" style={{ fontSize: '0.68rem', opacity: 0.4 }}>{blindByStake[level]} blinds</span>
+                      <span className="d-block mt-1" style={{ fontSize: '0.68rem', opacity: 0.4 }}>{anteByStake[level]} ante</span>
                     </button>
                   </div>
                 ))}
@@ -269,7 +269,7 @@ export function TableCreation({
               <div className="d-flex align-items-start justify-content-between gap-3">
                 <div className="min-w-0">
                   <h3 className="m-0 text-lg font-semibold text-truncate" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{tableName}</h3>
-                  <p className="m-0 mt-1 text-xs" style={{ color: '#e8e4dc', opacity: 0.38 }}>5-card draw · Blinds {blindByStake[stakes]}</p>
+                  <p className="m-0 mt-1 text-xs" style={{ color: '#e8e4dc', opacity: 0.38 }}>5-card draw · Ante {anteByStake[stakes]}</p>
                 </div>
                 <span className="text-xs font-semibold rounded-md px-2 py-1" style={{ color: STAKE_COLORS[stakes], background: `${STAKE_COLORS[stakes]}22`, border: `1px solid ${STAKE_COLORS[stakes]}44` }}>
                   {STAKE_LABELS[stakes]}

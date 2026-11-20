@@ -786,7 +786,7 @@ useEffect(() => {
           <div className="hidden h-5 w-px sm:block" style={{ background: '#2a2d38' }} />
           <div>
             <p className="text-sm font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{table.name}</p>
-            <p className="hidden text-xs sm:block" style={{ color: '#e8e4dc', opacity: 0.35 }}>5-card draw · Blinds {table.blind}</p>
+            <p className="hidden text-xs sm:block" style={{ color: '#e8e4dc', opacity: 0.35 }}>5-card draw · Ante {table.blind}</p>
           </div>
           {/* P7: only the host's copy of the table includes the code, so only the host sees this */}
           {table.isPrivate && table.inviteCode && (
@@ -1040,11 +1040,6 @@ useEffect(() => {
 
             
 {serverMode && opponents.map((player, index) => {
-  const isSmallBlind =
-    String(game!.smallBlindPlayerId) === String(player.refId);
-
-  const isBigBlind =
-    String(game!.bigBlindPlayerId) === String(player.refId);
 
   return (
     <PlayerSeat
@@ -1056,20 +1051,8 @@ useEffect(() => {
       position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
       showCards={!player.folded &&(!dealing || dealtToOpponent(index) > 0)}
     cardCount={dealtToOpponent(index)}
-      blindLabel={
-        isSmallBlind
-          ? 'Small Blind (SB)'
-          : isBigBlind
-            ? 'Big Blind (BB)'
-            : ''
-      }
-      blindAmount={
-        isSmallBlind
-          ? game!.smallBlind
-          : isBigBlind
-            ? game!.bigBlind
-            : 0
-      }
+      blindLabel={game!.handStartPlayerId === player.refId ? 'First to act' : ''}
+      blindAmount={game!.handStartPlayerId === player.refId ? game!.ante : 0}
       betAmount={game!.playerBets?.[String(player.refId)] ?? player.bet ?? 0}
     />
   );
@@ -1077,23 +1060,11 @@ useEffect(() => {
 
 
   {!serverMode && otherPlayers.map((player, index) => {
-    const isSmallBlind =
-        game?.smallBlindPlayerId === String(player.refId);
-
-    const isBigBlind =
-        game?.bigBlindPlayerId === String(player.refId);
-
         return (
             <PlayerSeat
                 key={`${player.kind}-${player.refId}`}
                 name={player.displayName}
-                chips={`$${500 - (
-                    isSmallBlind
-                        ? game?.smallBlind ?? 0
-                        : isBigBlind
-                            ? game?.bigBlind ?? 0
-                            : 0
-                )}`}
+                chips="$500"
                 dealer={index === 0}
                 active={game?.currentTurn === String(player.refId)}
                 position={PLAYER_POSITIONS[index % PLAYER_POSITIONS.length]}
@@ -1102,20 +1073,8 @@ useEffect(() => {
                   (!dealing || dealtToOpponent(index) > 0)
                 }
                 cardCount={dealtToOpponent(index)}
-                blindLabel={
-                    isSmallBlind
-                        ? 'Small Blind (SB)'
-                        : isBigBlind
-                            ? 'Big Blind (BB)'
-                            : ''
-                }
-                blindAmount={
-                    isSmallBlind
-                        ? game?.smallBlind ?? 0
-                        : isBigBlind
-                            ? game?.bigBlind ?? 0
-                            : 0
-                }
+                blindLabel=""
+                blindAmount={0}
             />
         );
     })}
@@ -1216,25 +1175,10 @@ useEffect(() => {
 
               {/* Blind label below the name */}
               <div className="text-left">
-                {game?.smallBlindPlayerId != null &&
-                  serverPlayerId != null &&
-                  String(game.smallBlindPlayerId) === String(serverPlayerId) && (
-                    <span
-                      className="text-[0.65rem] font-bold"
-                      style={{ color: '#fbbf24' }}
-                    >
-                      Small Blind · ${game.smallBlind}
-                    </span>
-                  )}
-
-                {game?.bigBlindPlayerId != null &&
-                  serverPlayerId != null &&
-                  String(game.bigBlindPlayerId) === String(serverPlayerId) && (
-                    <span
-                      className="text-[0.65rem] font-bold"
-                      style={{ color: '#fbbf24' }}
-                    >
-                      Big Blind · ${game.bigBlind}
+                {serverPlayerId != null &&
+                  game?.handStartPlayerId === String(serverPlayerId) && (
+                    <span className="text-[0.65rem] font-bold" style={{ color: '#fbbf24' }}>
+                      First to act
                     </span>
                   )}
               </div>
@@ -1465,7 +1409,7 @@ useEffect(() => {
           <div className="rounded-2xl border p-5" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Table details</p>
             <div className="mt-4 space-y-3">
-              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Blinds', table.blind], ['Players', `${players.length} / ${table.max}`], ['Watching', String(watcherCount)]].map(([label, value]) => (
+              {[['Game', '5-card draw'], ['Stakes', STAKE_LABELS[table.stakes]], ['Ante', table.blind], ['Players', `${players.length} / ${table.max}`], ['Watching', String(watcherCount)]].map(([label, value]) => (
                 <div key={label} className="flex items-center justify-between text-xs">
                   <span style={{ color: '#e8e4dc', opacity: 0.35 }}>{label}</span>
                   <span className="font-medium" style={{ color: '#e8e4dc' }}>{value}</span>

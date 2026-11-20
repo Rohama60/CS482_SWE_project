@@ -5,13 +5,15 @@ import { decideBet, decideDraw, botStyleFor, BOT_NAMES } from '../../game/BotPla
 export class GameConflictError extends Error {}
 export class GameNotFoundError extends Error {}
 
-export const BLIND_BY_STAKE = {
-    low: { small: 1, big: 2 },
-    medium: { small: 5, big: 10 },
-    high: { small: 25, big: 50 },
+export const ANTE_BY_STAKE = {
+    low: 1,
+    medium: 5,
+    high: 25,
 };
-const STACK_IN_BIG_BLINDS = 100; // most a player can put on the table in one hand
-const BOT_STACK_IN_BIG_BLINDS = 100;
+// Backwards-compatible export name; the values are antes, never blinds.
+export const BLIND_BY_STAKE = ANTE_BY_STAKE;
+const STACK_IN_ANTES = 100;
+const BOT_STACK_IN_ANTES = 100;
 
 /**
  * Everything about running a hand against the database, with the database, socket and
@@ -110,8 +112,8 @@ export function createGameService(deps) {
     async function startGame(tableId) {
         const table = await tableDao.findTableById(tableId);
         if (!table) throw new GameNotFoundError('Table not found');
-        const blinds = BLIND_BY_STAKE[table.stakes];
-        if (!blinds) throw new GameRuleError('Invalid stakes');
+        const ante = ANTE_BY_STAKE[table.stakes];
+        if (ante === undefined) throw new GameRuleError('Invalid stakes');
 
         const seats = table.seats || [];
         const botCount = table.bots || 0;
@@ -121,10 +123,10 @@ export function createGameService(deps) {
         const startChips = {};
         for (const seat of seats) {
             const balance = await chipDao.getChipBalance({ kind: seat.kind, refId: seat.refId });
-            if (balance === null || balance < blinds.big) {
+            if (balance === null || balance < ante) {
                 throw new GameRuleError(`${seat.displayName || 'A player'} does not have enough chips`);
             }
-            const stack = Math.min(balance, blinds.big * STACK_IN_BIG_BLINDS);
+            const stack = Math.min(balance, ante * STACK_IN_ANTES);
             startChips[String(seat.refId)] = stack;
             participants.push({ refId: String(seat.refId), kind: seat.kind, displayName: seat.displayName || 'Player', chips: stack });
         }
@@ -132,7 +134,7 @@ export function createGameService(deps) {
             const refId = `bot-${i + 1}`;
             participants.push({
                 refId, kind: 'bot', displayName: `${BOT_NAMES[i % BOT_NAMES.length]} (CPU)`,
-                chips: blinds.big * BOT_STACK_IN_BIG_BLINDS, style: botStyleFor(i),
+                chips: ante * BOT_STACK_IN_ANTES, style: botStyleFor(i),
             });
         }
 
@@ -142,7 +144,7 @@ export function createGameService(deps) {
             if (!claimed) throw new GameConflictError('A game is already in progress at this table');
             const handNumber = table.hands ?? 0;
             const engine = startHand({
-                participants, smallBlind: blinds.small, bigBlind: blinds.big,
+                participants, ante,
                 deck: shuffleDeck(createDeck()), rotate: handNumber,
             });
             await applyChipChanges(
@@ -154,15 +156,15 @@ export function createGameService(deps) {
                 tableId: table._id,
                 playerIds: seats.filter(s => s.kind === 'user').map(s => s.refId),
                 guestIds: seats.filter(s => s.kind === 'guest').map(s => s.refId),
-                smallBlind: blinds.small, bigBlind: blinds.big,
-                smallBlindPlayerId: engine.smallBlindPlayerId, bigBlindPlayerId: engine.bigBlindPlayerId,
+                ante,
+                handStartIndex: engine.handStartIndex, handStartPlayerId: engine.handStartPlayerId,
                 startChips, handNumber, engine, settled: false,
                 ...mirror(engine),
             }, session);
         });
 
         game = await load(game._id);
-        // A hand can end immediately (everyone all-in from the blinds)
+        // A hand can end immediately (everyone is all-in after posting the ante)
         if (game.engine.round === 'finished') await withLock(String(game._id), () => commit(game, game.engine));
         else await broadcast(game);
         return game;

@@ -163,7 +163,7 @@ describe('TableCreation (create mode)', () => {
     expect(screen.getByRole('button', { name: /^mid/i })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /^low/i })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByText('Medium')).toBeInTheDocument()
-    expect(screen.getByText(/Blinds 5 \/ 10/)).toBeInTheDocument()
+    expect(screen.getByText(/Ante \$5/)).toBeInTheDocument()
     expect(screen.getAllByText('$500').length).toBeGreaterThan(0)
   })
 

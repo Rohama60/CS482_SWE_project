@@ -9,6 +9,7 @@ import { getFriendRequests } from '../friendsApi.ts'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 import { AdSlot } from '../components/lobby/AdSlot'
 import { SeatDots } from '../components/lobby/SeatDots'
+import { GameHistory } from '../components/history/GameHistory'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -44,6 +45,7 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onHisto
   const [hovered, setHovered] = useState<string | number | null>(null)
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   // P11: how many friend requests are waiting, for the badge on the Friends button
   const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
@@ -341,6 +343,21 @@ if (showFriends && isAuthenticated) {
       />
     )
   }
+if (showHistory && isAuthenticated) {
+  return (
+    <div className="min-h-screen" style={{ background: '#0a0a0b' }}>
+      <button
+        type="button"
+        onClick={() => setShowHistory(false)}
+        className="m-4 rounded-lg px-4 py-2 text-sm"
+        style={{ background: '#1c1e25', border: '1px solid #292c35', color: '#e8e4dc' }}
+      >
+        Back to lobby
+      </button>
+      <GameHistory />
+    </div>
+  )
+}
 return (
     <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
       {/* Red top line */}
@@ -535,6 +552,19 @@ return (
             </button>
             {isAuthenticated && (
               <button
+                onClick={() => {
+                  setShowHistory(true)
+                  onHistory?.()
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+                style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #3a3d49' }}
+              >
+                <span aria-hidden="true" style={{ color: '#c0392b' }}>◷</span>
+                History
+              </button>
+            )}
+            {isAuthenticated && (
+              <button
                 onClick={() => setShowFriends(true)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
                 style={{ background: '#1c1e25', color: '#e8e4dc', border: '1px solid #3a3d49' }}
@@ -632,7 +662,7 @@ return (
                       {table.name}
                     </h3>
                     <p className="text-xs mt-0.5" style={{ color: '#e8e4dc', opacity: 0.35 }}>
-                      Blinds {table.blind} · {table.hands} hands played
+                      Ante {table.blind} · {table.hands} hands played
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">
@@ -804,7 +834,7 @@ return (
                       {table.name}
                     </h3>
                     <p className="text-xs mt-0.5" style={{ color: '#e8e4dc', opacity: 0.35 }}>
-                      Blinds {table.blind} · {table.hands} hands played
+                      Ante {table.blind} · {table.hands} hands played
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1.5">

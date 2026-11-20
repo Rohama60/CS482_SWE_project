@@ -261,7 +261,7 @@ describe("Update Table Controller Tests",() =>{
             max: 6,
             bots: 2,
             isPrivate: false,
-            blind: '5 / 10' // Updated blind based on stakes
+            blind: '$5 ante'
 
         }
 
@@ -273,7 +273,7 @@ describe("Update Table Controller Tests",() =>{
             _id: '507f1f77bcf86cd799439011',
             name: "Updated Table Name",
             stakes: "medium",
-            blind: "5 / 10",
+            blind: "$5 ante",
             max: 6,
             seats: 4,
             players: 2,
@@ -396,7 +396,7 @@ describe("Create Table Controller Tests", () => {
             _id: '507f1f77bcf86cd799439012',
             name: 'New Table',
             stakes: 'low',
-            blind: '1 / 2',
+            blind: '$1 ante',
             max: 4,
             players: 2,
             bots: 1,
@@ -419,7 +419,7 @@ describe("Create Table Controller Tests", () => {
         expect(mockCreateTable).toHaveBeenCalledWith({
             name: 'New Table',
             stakes: 'low',
-            blind: '1 / 2',
+            blind: '$1 ante',
             max: 4,
             players: 2,
             bots: 1,
@@ -703,7 +703,7 @@ describe('Get Table By ID Controller Tests', () => {
             _id: '507f1f77bcf86cd799439011',
             name: 'Poker Room',
             stakes: 'low',
-            blind: '1 / 2',
+            blind: '$1 ante',
             max: 4,
             players: 1,
             bots: 0,

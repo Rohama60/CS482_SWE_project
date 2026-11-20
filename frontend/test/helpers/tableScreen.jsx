@@ -31,7 +31,7 @@ export const SEATS = [
   { kind: 'guest', refId: 'g1', displayName: 'Guest-1234', ready: true },
 ]
 export const GAME = {
-  _id: 'game1', smallBlind: 1, bigBlind: 2, smallBlindPlayerId: 'u2', bigBlindPlayerId: 'g1',
+  _id: 'game1', ante: 1, handStartIndex: 0, handStartPlayerId: 'u1',
   currentBet: 2, currentTurn: 'u1', playerBets: {}, potSize: 3, round: 'pre-draw',
 }
 
@@ -44,10 +44,8 @@ export const DEALT = [
 export const BOT_GAME = {
   ...GAME,
   round: 'betting1',
-  smallBlindPlayerId: 'u1',
-  bigBlindPlayerId: 'bot-1',
-  smallBlind: 1,
-  bigBlind: 2,
+  handStartPlayerId: 'u1',
+  ante: 1,
   currentBet: 2,
   playerBets: { u1: 1, 'bot-1': 2 },
   potSize: 3,

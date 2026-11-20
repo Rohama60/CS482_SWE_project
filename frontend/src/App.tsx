@@ -17,14 +17,14 @@ import { authClient } from './AuthClient.ts'
 
 
 const TABLES = [
-  { id: 1, name: 'Velvet Room',    stakes: 'low',    blind: '1 / 2',     players: 4, max: 6, status: 'active',  avgPot: '$18',   hands: 142 },
-  { id: 2, name: 'The Boneyard',   stakes: 'medium', blind: '5 / 10',    players: 3, max: 6, status: 'active',  avgPot: '$87',   hands: 58  },
-  { id: 3, name: 'Crimson Lounge', stakes: 'high',   blind: '25 / 50',   players: 5, max: 6, status: 'active',  avgPot: '$420',  hands: 31  },
-  { id: 4, name: 'Lucky Draw',     stakes: 'low',    blind: '1 / 2',     players: 2, max: 6, status: 'active',  avgPot: '$12',   hands: 209 },
-  { id: 5, name: 'Dead Man\'s Hand',stakes:'medium', blind: '5 / 10',    players: 6, max: 6, status: 'full',    avgPot: '$95',   hands: 77  },
-  { id: 6, name: 'High Roller',    stakes: 'high',   blind: '100 / 200', players: 2, max: 6, status: 'active',  avgPot: '$1,840',hands: 12  },
-  { id: 7, name: 'Parlor No. 7',   stakes: 'low',    blind: '1 / 2',     players: 1, max: 6, status: 'waiting', avgPot: '—',     hands: 0   },
-  { id: 8, name: 'Iron Curtain',   stakes: 'medium', blind: '10 / 20',   players: 4, max: 6, status: 'active',  avgPot: '$155',  hands: 44  },
+  { id: 1, name: 'Velvet Room',    stakes: 'low',    blind: '$1 ante',     players: 4, max: 6, status: 'active',  avgPot: '$18',   hands: 142 },
+  { id: 2, name: 'The Boneyard',   stakes: 'medium', blind: '$5 ante',    players: 3, max: 6, status: 'active',  avgPot: '$87',   hands: 58  },
+  { id: 3, name: 'Crimson Lounge', stakes: 'high',   blind: '$25 ante',   players: 5, max: 6, status: 'active',  avgPot: '$420',  hands: 31  },
+  { id: 4, name: 'Lucky Draw',     stakes: 'low',    blind: '$1 ante',     players: 2, max: 6, status: 'active',  avgPot: '$12',   hands: 209 },
+  { id: 5, name: 'Dead Man\'s Hand',stakes:'medium', blind: '$5 ante',    players: 6, max: 6, status: 'full',    avgPot: '$95',   hands: 77  },
+  { id: 6, name: 'High Roller',    stakes: 'high',   blind: '$25 ante', players: 2, max: 6, status: 'active',  avgPot: '$1,840',hands: 12  },
+  { id: 7, name: 'Parlor No. 7',   stakes: 'low',    blind: '$1 ante',     players: 1, max: 6, status: 'waiting', avgPot: '—',     hands: 0   },
+  { id: 8, name: 'Iron Curtain',   stakes: 'medium', blind: '$5 ante',   players: 4, max: 6, status: 'active',  avgPot: '$155',  hands: 44  },
 ]
 
 

@@ -54,7 +54,7 @@ jest.mock('../src/components/AudioSettings.tsx', () => {
 // ---------------------------------------------------------------
 
 const TABLES = [
-  { id: '1', name: 'Velvet Room',    stakes: 'low',    blind: '1 / 2',   players: 4, max: 6, status: 'active',  avgPot: '$18',  hands: 142 },
+  { id: '1', name: 'Velvet Room',    stakes: 'low',    blind: '$1 ante',   players: 4, max: 6, status: 'active',  avgPot: '$18',  hands: 142 },
   { id: '2', name: 'The Boneyard',   stakes: 'medium', blind: '5 / 10',  players: 3, max: 6, status: 'active',  avgPot: '$87',  hands: 58 },
   { id: '3', name: 'Crimson Lounge', stakes: 'high',   blind: '25 / 50', players: 5, max: 6, status: 'active',  avgPot: '$420', hands: 31 },
   { id: '4', name: 'Dead Mans Hand', stakes: 'medium', blind: '5 / 10',  players: 6, max: 6, status: 'full',    avgPot: '$95',  hands: 77 },
@@ -156,7 +156,7 @@ describe('Lobby: table list', () => {
     for (const table of TABLES) {
       expect(screen.getByRole('heading', { name: table.name })).toBeInTheDocument()
     }
-    expect(screen.getByText(/Blinds 1 \/ 2 · 142 hands played/)).toBeInTheDocument()
+    expect(screen.getByText(/Ante \$1 ante · 142 hands played/)).toBeInTheDocument()
     expect(screen.getByText('4/6 seated · avg pot $18')).toBeInTheDocument()
   })
 
