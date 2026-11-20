@@ -8,7 +8,8 @@ import { evaluateHand, compareHands } from './HandEvaluator.js';
 // Flow of a hand:  betting1 -> drawing (everyone replaces cards once) -> betting2 -> finished
 
 export const MAX_RAISES_PER_ROUND = 3;
-export const MAX_DISCARDS = 5;
+export const MAX_DISCARDS = 3;
+export const ACE_DISCARD_LIMIT = 4;
 
 export class GameRuleError extends Error {
     constructor(message) {
@@ -19,6 +20,7 @@ export class GameRuleError extends Error {
 
 const isLive = p => !p.folded;              // still in the hand
 const canAct = p => !p.folded && p.chips > 0; // in the hand and not all-in
+const handHasAce = hand => hand.some(card => card.rank === 'A');
 
 function indexOfPlayer(state, refId) {
     return state.participants.findIndex(p => p.refId === refId);
@@ -235,7 +237,7 @@ function settleRoundEnd(state) {
     }
 }
 
-/** The player whose turn it is replaces the cards at `discardIndexes` (0-4) from the deck. */
+/** The player whose turn it is replaces up to three cards, or four with an ace. */
 
 export function applyDraw(state, refId, discardIndexes) {
     if (state.round !== 'drawing') {
@@ -260,13 +262,16 @@ export function applyDraw(state, refId, discardIndexes) {
         throw new GameRuleError('Invalid cards selected');
     }
 
-    if (indexes.length > MAX_DISCARDS) {
+    const hand = state.hands[refId];
+    const maxDiscards = handHasAce(hand)
+        ? ACE_DISCARD_LIMIT
+        : MAX_DISCARDS;
+
+    if (indexes.length > maxDiscards) {
         throw new GameRuleError(
-            `You can replace at most ${MAX_DISCARDS} cards`
+            `You can replace at most ${maxDiscards} cards`
         );
     }
-
-    const hand = state.hands[refId];
 
     if (indexes.length > 0) {
 
@@ -292,10 +297,8 @@ export function applyDraw(state, refId, discardIndexes) {
             hand[handIndex] = replacements[i];
         });
 
-        // 4. Return discarded cards to the BOTTOM of the deck
-        // The deck draws with pop(), so unshift() inserts
-        // cards at the opposite end.
-        state.deck.unshift(...discardedCards);
+        // Keep discarded cards out of the draw pile for the rest of the hand.
+        state.discards.push(...discardedCards);
     }
 
     // Mark the player as finished drawing

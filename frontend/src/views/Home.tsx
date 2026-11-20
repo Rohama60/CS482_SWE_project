@@ -394,7 +394,7 @@ export default function Home({ setView, onSignUp, onSignIn, onProfile, onHistory
                 Best hand wins the pot
                 </h2>
                 <p className="mt-3 text-sm leading-relaxed md:text-base" style={{ color: '#e8e4dc', opacity: 0.42 }}>
-                Join a table, place your bet, replace up to five cards, and compete for the pot. Play instantly as a guest—no download required.
+                Join a table, place your bet, replace up to three cards (or four with an ace), and compete for the pot. Play instantly as a guest—no download required.
                 </p>
             </div>
 

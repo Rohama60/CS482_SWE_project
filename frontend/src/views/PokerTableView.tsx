@@ -255,6 +255,7 @@ const opponents = serverMode ? game!.participants!.filter(p => String(p.refId) !
 const myTurn = serverMode && String(game!.currentTurn) === String(serverPlayerId) && !spectating;
 const legal = game?.legal;
 const lastAction = game?.lastAction;
+const maxDiscards = hand.some(card => card.rank === 'A') ? 4 : 3;
 const lastActionPlayer = lastAction && game?.participants?.find(
   player => String(player.refId) === String(lastAction.playerId)
 );
@@ -397,6 +398,8 @@ async function fetchMyHand(id: string) {
     setSelected(current =>
         current.includes(index)
             ? current.filter(i => i !== index)
+            : current.length >= maxDiscards
+              ? current
             : [...current, index]
     );
   }
