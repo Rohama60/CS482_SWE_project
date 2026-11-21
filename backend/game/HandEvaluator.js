@@ -1,4 +1,4 @@
-import { RANKS } from './PlayingCards.js';
+import { RANKS, createDeck, shuffleDeck } from './PlayingCards.js';
 
 // '2' -> 2 ... 'A' -> 14
 const RANK_VALUE = Object.fromEntries(RANKS.map((rank, index) => [rank, index + 2]));
@@ -71,4 +71,102 @@ export function compareHands(a, b) {
         if (difference !== 0) return difference;
     }
     return 0;
+}
+
+export function calculateWinProbability(myCards, opponentCount) {
+    const simulations = 2000;
+
+    if (!Array.isArray(myCards) || myCards.length !== 5) {
+        throw new Error('A hand must contain five cards');
+    }
+
+    if (
+        !Number.isInteger(opponentCount) ||
+        opponentCount < 0 ||
+        opponentCount > 9
+    ) {
+        throw new Error('Invalid opponent count');
+    }
+
+    // Identify the cards that belong to the player.
+    const knownCards = new Set(
+        myCards.map(card => `${card.rank}-${card.suit}`)
+    );
+
+    if (knownCards.size !== 5) {
+        throw new Error('Duplicate cards in hand');
+    }
+
+    // Generate a deck without the player's cards.
+    const deck = createDeck().filter(
+        card => !knownCards.has(`${card.rank}-${card.suit}`)
+    );
+
+    // Evaluate the player's actual hand once.
+    const myRanking = evaluateHand(myCards);
+
+    if (opponentCount === 0) {
+        return {
+            myHandRanking: myRanking,
+            winPercent: 100,
+            equityPercent: 100,
+            opponents: 0,
+            simulations
+        };
+    }
+
+    let wins = 0;
+    let equity = 0;
+
+    for (let i = 0; i < simulations; i++) {
+        // Randomize possible unknown opponent cards.
+        const shuffledDeck = shuffleDeck(deck);
+
+        let bestHand = myRanking;
+        const opponentRankings = [];
+
+        for (let j = 0; j < opponentCount; j++) {
+            const start = j * 5;
+
+            const opponentCards = shuffledDeck.slice(
+                start,
+                start + 5
+            );
+
+            const opponentRanking = evaluateHand(opponentCards);
+
+            opponentRankings.push(opponentRanking);
+
+            if (compareHands(opponentRanking, bestHand) > 0) {
+                bestHand = opponentRanking;
+            }
+        }
+
+        // Check whether the player's hand is strongest.
+        if (compareHands(myRanking, bestHand) === 0) {
+            const ties = opponentRankings.filter(
+                ranking => compareHands(ranking, bestHand) === 0
+            ).length;
+
+            // Outright win
+            if (ties === 0) {
+                wins++;
+            }
+
+            // Divide equity when multiple players tie.
+            equity += 1 / (ties + 1);
+        }
+    }
+
+    return {
+        myHandRanking: myRanking,
+        winPercent: Number(
+            ((wins / simulations) * 100).toFixed(1)
+        ),
+        equityPercent: Number(
+            ((equity / simulations) * 100).toFixed(1)
+        ),
+        opponents: opponentCount,
+        simulations
+    };
 }

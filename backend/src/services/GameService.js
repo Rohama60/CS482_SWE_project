@@ -1,7 +1,7 @@
 import { createDeck, shuffleDeck } from '../../game/PlayingCards.js';
 import { startHand, applyBettingAction, applyDraw, forceFold, toPublicState, getLegalActions, GameRuleError } from '../../game/PokerEngine.js';
 import { decideBet, decideDraw, botStyleFor, BOT_NAMES } from '../../game/BotPlayer.js';
-
+import { evaluateHand, calculateWinProbability } from '../../game/HandEvaluator.js';
 export class GameConflictError extends Error {}
 export class GameNotFoundError extends Error {}
 
@@ -22,6 +22,7 @@ const BOT_STACK_IN_ANTES = 100;
  * deps = { tableDao, gameDao, chipDao, emit(tableId, event, payload), delay(ms), rng, botDelayMs }
  */
 export function createGameService(deps) {
+    const oddsCache = new Map();
     const { tableDao, gameDao, chipDao, emit } = deps;
     const delay = deps.delay ?? (ms => new Promise(r => setTimeout(r, ms)));
     const rng = deps.rng ?? Math.random;
@@ -56,15 +57,44 @@ export function createGameService(deps) {
         const pub = toPublicState(engine);
         const me = viewer ? engine.participants.find(p => p.refId === String(viewer.refId)) : null;
         const finished = engine.round === 'finished';
+        const myCards = me ? engine.hands[me.refId] : null;
+        const myHandRanking = myCards?.length === 5
+            ? evaluateHand(myCards)
+            : null;
+        const opponentCount = me ? engine.participants.filter(player => !player.folded && player.refId !== me.refId).length: 0;
+        let myWinProbability = null;
+
+        if (myCards?.length === 5 && me && !me.folded && !finished) {
+            const handKey = myCards
+                .map(card => `${card.rank}-${card.suit}`)
+                .sort()
+                .join('|');
+
+            const cacheKey =
+                `${game._id}-${game.handNumber}-${me.refId}-${handKey}-${opponentCount}`;
+
+            if (oddsCache.has(cacheKey)) {
+                myWinProbability = oddsCache.get(cacheKey);
+            } else {
+                myWinProbability = calculateWinProbability(
+                    myCards,
+                    opponentCount
+                );
+
+                oddsCache.set(cacheKey, myWinProbability);
+            }
+        }
         return {
             _id: String(game._id),
             tableId: tableOf(game),
             handNumber: game.handNumber,
             ...pub,
-            myHand: me ? engine.hands[me.refId] : null,
             legal: me ? getLegalActions(engine, me.refId) : { canAct: false },
             myTurnToDraw: !!me && engine.round === 'drawing' && engine.currentTurn === me.refId,
             finished,
+            myHand: myCards,
+            myHandRanking: myHandRanking,
+            myWinProbability: myWinProbability,
         };
     }
 

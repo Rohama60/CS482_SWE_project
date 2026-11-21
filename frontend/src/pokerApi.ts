@@ -40,7 +40,24 @@ export type GameState = {
   round: string
   participants?: ServerPlayer[]
   legal?: LegalActions
-  myHand?: CardData[] | null
+  myHandRanking?: {
+  category: number;
+  name: string;
+  tiebreak: number[];
+  } | null;
+  myHand?: CardData[] | null;
+
+  myWinProbability?: {
+  myHandRanking: {
+    category: number;
+    name: string;
+    tiebreak: number[];
+  };
+  winPercent: number;
+  equityPercent: number;
+  opponents: number;
+  simulations: number;
+  } | null;
   myTurnToDraw?: boolean
   winners?: { refId: string; amount: number; handName: string | null }[]
   resultText?: string

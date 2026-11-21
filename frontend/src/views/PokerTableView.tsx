@@ -97,6 +97,7 @@ const viewerRefId = useRef<string | null>(null);
   const [error, setError] = useState('')
   const complete = false
   const [showHelp, setShowHelp] = useState(false)
+  const [showHandInsights, setShowHandInsights] = useState(false);
   const [players, setPlayers] = useState<TableSeat[]>([])
   const [raiseBy, setRaiseBy] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -796,7 +797,8 @@ useEffect(() => {
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
+
           <div className="text-right">
             <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Your total balance</p>
           <p className="text-sm font-semibold" style={{ color: '#e8e4dc' }}>
@@ -1235,7 +1237,133 @@ useEffect(() => {
               </p>
             </div>
           ) : serverMode ? (
-            <div className="mt-3 flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between" style={{ background: '#14161b', borderColor: '#292c35' }}>
+  <div className="mt-3 flex flex-col gap-2">
+
+    {!me?.folded && game?.round !== 'finished' && (
+      <div
+        className="rounded-xl border"
+        style={{
+          background: '#17191f',
+          borderColor: '#3a2528',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setShowHandInsights(!showHandInsights)}
+          aria-expanded={showHandInsights}
+          className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold"
+          style={{
+            background: '#17191f',
+            color: '#e8e4dc',
+            border: '1px solid #3a2528',
+          }}
+        >
+         
+        <div className="flex w-full items-center justify-between gap-4">
+
+          {/* LEFT: Hand Insights and player's hand */}
+          <div className="flex items-center gap-4">
+
+            <span className="whitespace-nowrap">
+              Hand Insights
+            </span>
+
+            <span
+              className="text-xs font-semibold"
+              style={{ color: '#f0a097' }}
+            >
+              My Hand: {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+            </span>
+
+          </div>
+
+          {/* RIGHT: Winning odds and dropdown arrow */}
+          <div className="flex items-center gap-3">
+
+            <span className="whitespace-nowrap text-xs font-semibold">
+              Winning Odds:
+            </span>
+
+            <span
+              className="text-sm font-bold"
+              style={{
+                color: !game?.myWinProbability
+                  ? '#e8e4dc'
+                  : game.myWinProbability.winPercent < 35
+                    ? '#ef4444'  // Red - low
+                    : game.myWinProbability.winPercent < 70
+                      ? '#facc15' // Yellow - medium
+                      : '#4ade80', // Green - high
+              }}
+            >
+              {game?.myWinProbability
+                ? `${game.myWinProbability.winPercent.toFixed(1)}%`
+                : '—'}
+            </span>
+
+            <span style={{ color: '#f0a097' }}>
+              {showHandInsights ? '▼' : '▲'}
+            </span>
+
+          </div>
+        </div>
+
+        </button>
+
+
+
+        {showHandInsights && (
+          <div className="border-t px-4 py-3" style={{ borderColor: '#292c35' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400">Your hand</p>
+                <p className="font-semibold text-white">
+                  {game?.myHandRanking?.name ?? 'Unavailable'}
+                </p>
+              </div>
+
+              <div className="text-right">
+                <p className="text-xs text-gray-400">
+                  Estimated win odds
+                </p>
+                <p className="text-xl font-bold text-green-400">
+                  {game?.myWinProbability
+                    ? `${game.myWinProbability.winPercent.toFixed(1)}%`
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {game?.myWinProbability && (
+              <div
+                className="mt-3 h-2 overflow-hidden rounded-full"
+                style={{ background: '#292c35' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${game.myWinProbability.winPercent}%`,
+                    background: '#4ade80',
+                  }}
+                />
+              </div>
+            )}
+
+            <p className="mt-2 text-[0.65rem] text-gray-400">
+              Estimated against random unknown hands, before any further draws.
+            </p>
+          </div>
+        )}
+      </div>
+    )}
+
+    <div
+      className="flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between"
+      style={{
+        background: '#14161b',
+        borderColor: '#292c35',
+      }}
+    >
 
             <div className="px-2">
               <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>{ROUND_LABELS[game!.round]}</p>
@@ -1301,6 +1429,7 @@ useEffect(() => {
               )}
             </div>
           </div>
+          </div>
            ) : gameStarted ? (
           <div className="mt-3 flex flex-col items-center justify-between gap-3 rounded-2xl border p-3 sm:flex-row" style={{ background: '#14161b', borderColor: '#292c35' }}>
             <div className="flex items-center gap-3 px-2">
@@ -1308,17 +1437,18 @@ useEffect(() => {
                 ♠
               </div>
               <div>
-                <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Your hand</p>
-                <p className="text-sm font-semibold" style={{ color: complete ? '#4ade80' : '#e8e4dc' }}>
-                  {complete ? 'Three of a kind — Aces' : 'One pair — Aces'}
-                </p>
-                <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>
-                  {complete
-                    ? 'Three aces with a king kicker'
-                    : selected.length
-                      ? `${selected.length} cards marked to discard`
-                      : 'A pair of aces with a 10 kicker'}
-                </p>
+               <p className="text-[0.65rem] font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>
+                Your hand
+              </p>
+              <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>
+                {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+              </p>
+
+              <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>
+                {selected.length > 0
+                  ? `${selected.length} cards marked to discard`
+                  : 'Your current five-card hand'}
+              </p>
               </div>
             </div>
             <div className="flex w-full gap-2 sm:w-auto">
@@ -1419,13 +1549,14 @@ useEffect(() => {
           </div>
           {!spectating && gameStarted && (
           <div className="rounded-2xl border p-5" style={{ background: 'linear-gradient(145deg, rgba(107,16,16,0.42), rgba(28,30,37,0.8))', borderColor: 'rgba(192,57,43,0.45)' }}>
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}>Your hand</p>
-            <p className="mt-2 text-lg font-semibold" style={{ color: complete ? '#4ade80' : '#e8e4dc', fontFamily: 'var(--font-display)' }}>
-              {complete ? 'Three Aces' : 'Pair of Aces'}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed" style={{ color: '#e8e4dc', opacity: 0.4 }}>
-              {complete ? 'Three cards of the same rank. This beats two pair.' : 'Two cards of the same rank. Try drawing three cards to improve.'}
-            </p>
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}> Your hand</p>
+          <p className="mt-2 text-lg font-semibold"  style={{color: '#4ade80', fontFamily: 'var(--font-display)'}}>
+            {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+          </p>
+          <p
+            className="mt-1 text-xs leading-relaxed"
+            style={{ color: '#e8e4dc', opacity: 0.4 }}>Your current five-card poker hand.
+          </p>  
             <button onClick={() => setShowHelp(true)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold" style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }}>
               <span className="flex h-4 w-4 items-center justify-center rounded-full text-[0.65rem]" style={{ border: '1px solid #c0392b', color: '#f0a097' }}>?</span>
               How to play
@@ -1441,6 +1572,8 @@ useEffect(() => {
           />
         </aside>
       </main>
+
+    
 
       {showHelp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(6px)' }} onClick={() => setShowHelp(false)}>
