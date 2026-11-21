@@ -1272,7 +1272,7 @@ useEffect(() => {
               className="text-xs font-semibold"
               style={{ color: '#f0a097' }}
             >
-              My Hand: {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+              My Hand: {game?.myHandRanking?.name ?? 'Hand not available'}
             </span>
 
           </div>
@@ -1441,7 +1441,7 @@ useEffect(() => {
                 Your hand
               </p>
               <p className="text-sm font-semibold" style={{ color: '#4ade80' }}>
-                {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+                {game?.myHandRanking?.name ?? 'Hand not available'}
               </p>
 
               <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>
@@ -1551,7 +1551,7 @@ useEffect(() => {
           <div className="rounded-2xl border p-5" style={{ background: 'linear-gradient(145deg, rgba(107,16,16,0.42), rgba(28,30,37,0.8))', borderColor: 'rgba(192,57,43,0.45)' }}>
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#c0392b' }}> Your hand</p>
           <p className="mt-2 text-lg font-semibold"  style={{color: '#4ade80', fontFamily: 'var(--font-display)'}}>
-            {game?.myHandRanking?.name ?? 'Waiting for cards...'}
+            {game?.myHandRanking?.name ?? 'Hand not available'}
           </p>
           <p
             className="mt-1 text-xs leading-relaxed"

@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 const mockFindByIdAndUpdate = jest.fn();
 const mockFindOneAndUpdate = jest.fn();
+const mockAccountFind = jest.fn();
+const mockAccountFindById = jest.fn();
+const mockIsValidObjectId = jest.fn();
 const mockComplaintSave = jest.fn();
 const mockHash = jest.fn();
 const mockComplaint = jest.fn(() => ({ save: mockComplaintSave }));
@@ -19,8 +22,20 @@ jest.unstable_mockModule('bcrypt', () => ({
   default: { hash: mockHash },
 }));
 
-const { PlayerMuteMusicController, FileComplaintController, SelfPasswordResetController, AdminPasswordResetController } =
-  await import('../src/controllers/UserController.js');
+jest.unstable_mockModule('../src/models/AccountModel.js', () => ({
+  default: {
+    find: mockAccountFind,
+    findById: mockAccountFindById,
+  },
+}));
+
+jest.unstable_mockModule('mongoose', () => ({
+  default: {
+    isValidObjectId: mockIsValidObjectId,
+  },
+}));
+const {  PlayerMuteMusicController,  FileComplaintController,  SelfPasswordResetController,AdminPasswordResetController,GetUsersController, GetCurrentUserController,  GetUserByIdController,
+} = await import('../src/controllers/UserController.js');
 
 describe('Controller Unit Tests', () => {
 
@@ -152,6 +167,306 @@ describe('Controller Unit Tests', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Admin successfully reset user password.' });
     });
+
+      // GET /api/users
+      describe('GetUsersController', () => {
+        test('should return all users successfully', async () => {
+          const users = [
+            {
+              _id: '123',
+              username: 'player1',
+              displayName: 'Player One',
+              email: 'player1@test.com',
+              chipamount: 500,
+              wins: 5,
+              losses: 2,
+              role: 'player',
+            },
+          ];
+
+          const mockLimit = jest.fn().mockResolvedValue(users);
+          const mockSort = jest.fn().mockReturnValue({
+            limit: mockLimit,
+          });
+
+          mockAccountFind.mockReturnValue({
+            sort: mockSort,
+          });
+
+          const req = { query: {} };
+          const res = mockResponse();
+
+          await GetUsersController(req, res);
+
+          expect(mockAccountFind).toHaveBeenCalledWith({});
+          expect(mockSort).toHaveBeenCalledWith({ updatedAt: -1 });
+          expect(mockLimit).toHaveBeenCalledWith(100);
+          expect(res.status).toHaveBeenCalledWith(200);
+          expect(res.json).toHaveBeenCalledWith([
+            expect.objectContaining({
+              username: 'player1',
+              chipamount: 500,
+            }),
+          ]);
+        });
+
+        test('should search users and sort by balance', async () => {
+          const mockLimit = jest.fn().mockResolvedValue([]);
+          const mockSort = jest.fn().mockReturnValue({
+            limit: mockLimit,
+          });
+
+          mockAccountFind.mockReturnValue({
+            sort: mockSort,
+          });
+
+          const req = {
+            query: {
+              search: 'player',
+              sortBy: 'balance',
+            },
+          };
+          const res = mockResponse();
+
+          await GetUsersController(req, res);
+
+          expect(mockAccountFind).toHaveBeenCalledWith({
+            $or: [
+              { username: { $regex: 'player', $options: 'i' } },
+              { email: { $regex: 'player', $options: 'i' } },
+              { displayName: { $regex: 'player', $options: 'i' } },
+            ],
+          });
+
+          expect(mockSort).toHaveBeenCalledWith({
+            chipamount: -1,
+          });
+          expect(res.status).toHaveBeenCalledWith(200);
+        });
+
+        test('should return 500 when fetching users fails', async () => {
+          mockAccountFind.mockImplementation(() => {
+            throw new Error('Database error');
+          });
+
+          const consoleSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+
+          try {
+            const req = { query: {} };
+            const res = mockResponse();
+
+            await GetUsersController(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith({
+              error: 'Failed to fetch users',
+            });
+          } finally {
+            consoleSpy.mockRestore();
+          }
+        });
+      });
+
+      // GET /api/users/me
+      describe('GetCurrentUserController', () => {
+        test('should return current authenticated user', async () => {
+          const req = {
+            account: {
+              _id: '123',
+              username: 'player1',
+              displayName: 'Player One',
+              email: 'player1@test.com',
+              chipamount: 500,
+              wins: 2,
+              losses: 1,
+              role: 'player',
+            },
+          };
+
+          const res = mockResponse();
+
+          await GetCurrentUserController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(200);
+          expect(res.json).toHaveBeenCalledWith({
+            user: expect.objectContaining({
+              id: '123',
+              username: 'player1',
+              chipamount: 500,
+            }),
+          });
+        });
+
+        test('should return 500 if account is missing', async () => {
+          const consoleSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+
+          try {
+            const req = {};
+            const res = mockResponse();
+
+            await GetCurrentUserController(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith({
+              error: 'Failed to fetch current user',
+            });
+          } finally {
+            consoleSpy.mockRestore();
+          }
+        });
+      });
+
+      // GET /api/users/:id
+      describe('GetUserByIdController', () => {
+        beforeEach(() => {
+          mockIsValidObjectId.mockReturnValue(true);
+        });
+
+        test('should reject an invalid user ID', async () => {
+          mockIsValidObjectId.mockReturnValue(false);
+
+          const req = {
+            params: { id: 'invalid' },
+          };
+          const res = mockResponse();
+
+          await GetUserByIdController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(400);
+          expect(res.json).toHaveBeenCalledWith({
+            error: 'Invalid user ID',
+          });
+        });
+
+        test('should prevent players from accessing other profiles', async () => {
+          const req = {
+            params: { id: '456' },
+            account: {
+              _id: '123',
+              role: 'player',
+            },
+          };
+          const res = mockResponse();
+
+          await GetUserByIdController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(403);
+          expect(res.json).toHaveBeenCalledWith({
+            error: 'You may only view your own profile',
+          });
+        });
+
+        test('should allow players to view their own profile', async () => {
+          const req = {
+            params: { id: '123' },
+            account: {
+              _id: '123',
+              username: 'player1',
+              role: 'player',
+              chipamount: 500,
+            },
+          };
+          const res = mockResponse();
+
+          await GetUserByIdController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(200);
+          expect(res.json).toHaveBeenCalledWith({
+            user: expect.objectContaining({
+              id: '123',
+              username: 'player1',
+            }),
+          });
+
+          expect(mockAccountFindById).not.toHaveBeenCalled();
+        });
+
+        test('should allow admins to view another profile', async () => {
+          const requestedUser = {
+            _id: '456',
+            username: 'player2',
+            chipamount: 1000,
+            role: 'player',
+          };
+
+          mockAccountFindById.mockResolvedValue(requestedUser);
+
+          const req = {
+            params: { id: '456' },
+            account: {
+              _id: '123',
+              role: 'admin',
+            },
+          };
+          const res = mockResponse();
+
+          await GetUserByIdController(req, res);
+
+          expect(mockAccountFindById).toHaveBeenCalledWith('456');
+          expect(res.status).toHaveBeenCalledWith(200);
+          expect(res.json).toHaveBeenCalledWith({
+            user: expect.objectContaining({
+              id: '456',
+              username: 'player2',
+            }),
+          });
+        });
+
+        test('should return 404 if user does not exist', async () => {
+          mockAccountFindById.mockResolvedValue(null);
+
+          const req = {
+            params: { id: '456' },
+            account: {
+              _id: '123',
+              role: 'admin',
+            },
+          };
+          const res = mockResponse();
+
+          await GetUserByIdController(req, res);
+
+          expect(res.status).toHaveBeenCalledWith(404);
+          expect(res.json).toHaveBeenCalledWith({
+            error: 'User not found',
+          });
+        });
+
+        test('should return 500 if database lookup fails', async () => {
+          mockAccountFindById.mockRejectedValue(
+            new Error('Database error')
+          );
+
+          const consoleSpy = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => {});
+
+          try {
+            const req = {
+              params: { id: '456' },
+              account: {
+                _id: '123',
+                role: 'admin',
+              },
+            };
+            const res = mockResponse();
+
+            await GetUserByIdController(req, res);
+
+            expect(res.status).toHaveBeenCalledWith(500);
+            expect(res.json).toHaveBeenCalledWith({
+              error: 'Failed to fetch user',
+            });
+          } finally {
+            consoleSpy.mockRestore();
+          }
+        });
+      });
+
   });
 
 });
