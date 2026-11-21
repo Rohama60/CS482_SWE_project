@@ -605,4 +605,106 @@ describe('How to play guide', () => {
     fireEvent.click(guideTitle().closest('.fixed'))
     expect(guideTitle()).not.toBeInTheDocument()
   })
+    describe('Hand Insights', () => {
+    test('shows hand ranking and winning odds when expanded', async () => {
+      const game = {
+        ...BOT_GAME,
+        myHandRanking: { name: 'One Pair' },
+        myWinProbability: { winPercent: 65.5 },
+      };
+
+      await renderTable({
+        overrides: {
+          'POST /api/bot-games': () => reply({
+            game,
+            seats: SEATS,
+          }),
+        },
+      });
+
+      await startGame();
+
+      const insightsButton = screen.getByRole('button', {
+        name: /Hand Insights/i,
+      });
+
+      expect(insightsButton).toHaveAttribute('aria-expanded', 'false');
+      expect(insightsButton).toHaveTextContent('One Pair');
+      expect(insightsButton).toHaveTextContent('65.5%');
+
+      fireEvent.click(insightsButton);
+
+      expect(insightsButton).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('Estimated win odds')).toBeInTheDocument();
+      expect(screen.getAllByText('Your hand').length).toBeGreaterThan(0);
+      fireEvent.click(insightsButton);
+
+      expect(insightsButton).toHaveAttribute('aria-expanded', 'false');
+    });
+  });
+    test('Hand Insights displays high odds and progress bar', async () => {
+    const game = {
+      ...BOT_GAME,
+      myHandRanking: { name: 'Full House' },
+      myWinProbability: { winPercent: 85.5 },
+    };
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () => reply({ game, seats: SEATS }),
+      },
+    });
+
+    await startGame();
+
+    const insights = screen.getByRole('button', {
+      name: /Hand Insights/i,
+    });
+
+    expect(screen.getByText('85.5%')).toHaveStyle({
+      color: '#4ade80',
+    });
+
+    fireEvent.click(insights);
+
+    expect(insights).toHaveAttribute('aria-expanded', 'true');
+
+    expect(screen.getByText('Estimated win odds')).toBeInTheDocument();
+
+    expect(screen.getByText(/Estimated against random unknown hands/))
+      .toBeInTheDocument();
+  });
+    test('displays winner and winning cards when game finishes', async () => {
+    const finishedGame = {
+      ...BOT_GAME,
+      round: 'finished',
+      currentTurn: '',
+      winners: [
+        {
+          refId: 'u1',
+          handName: 'One Pair',
+          amount: 20,
+        },
+      ],
+      revealedHands: {
+        u1: [
+          { rank: 'A', suit: 'spades' },
+          { rank: 'A', suit: 'hearts' },
+        ],
+      },
+    };
+
+    await renderTable({
+      overrides: {
+        'POST /api/bot-games': () =>
+          reply({ game: finishedGame, seats: SEATS }),
+      },
+    });
+
+    await startGame();
+
+    expect(screen.getByText('Winner')).toBeInTheDocument();
+    expect(screen.getAllByText('Preston').length).toBeGreaterThan(0);
+    expect(screen.getByText(/One Pair · \$20/)).toBeInTheDocument();
+  });
 })
