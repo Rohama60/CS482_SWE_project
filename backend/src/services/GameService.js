@@ -27,6 +27,9 @@ export function createGameService(deps) {
     const delay = deps.delay ?? (ms => new Promise(r => setTimeout(r, ms)));
     const rng = deps.rng ?? Math.random;
     const botDelayMs = deps.botDelayMs ?? 1200;
+    const TURN_MS = 30_000;
+    const timers = new Map();
+    const armedGames = new Set();
 
     // One move at a time per game (single server instance)
     const locks = new Map();
@@ -138,6 +141,94 @@ export function createGameService(deps) {
         if (!game || !game.engine) throw new GameNotFoundError('Game not found');
         return game;
     }
+
+    // Automatically folds in betting or stands pat in drawing.
+    async function expireTurn(game) {
+        const e = game.engine;
+        const turn = e.participants.find(p => p.refId === e.currentTurn);
+
+        if (!turn || turn.kind === 'bot' ||
+            e.round === 'finished' ||
+            !game.turnDeadline ||
+            Date.now() < game.turnDeadline) return false;
+
+        const previous = new Map(
+            e.participants.map(p => [p.refId, p.chips])
+        );
+
+        if (e.round === 'drawing') {
+            applyDraw(e, turn.refId, []);
+        } else {
+            applyBettingAction(e, turn.refId, { type: 'fold' });
+        }
+
+        await commit(game, e, previous);
+        return true;
+    }
+
+    function scheduleTurn(game) {
+        const id = String(game._id);
+        clearTimeout(timers.get(id));
+        timers.delete(id);
+
+        if (game.engine.round === 'finished') {
+            armedGames.delete(id);
+            return;
+        }
+
+        const player = game.engine.participants.find(
+            p => p.refId === game.engine.currentTurn
+        );
+
+        if (!armedGames.has(id) ||
+            !player || player.kind === 'bot' ||
+            !game.turnDeadline) return;
+
+        const deadline = Number(game.turnDeadline);
+
+        const timer = setTimeout(() => {
+            withLock(id, async () => {
+                const fresh = await load(id);
+                if (Number(fresh.turnDeadline) !== deadline) return false;
+                return expireTurn(fresh);
+            })
+            .then(expired => {
+                if (expired) void runBots(id);
+            })
+            .catch(err => console.error('Turn timer failed:', err));
+        }, Math.max(0, deadline - Date.now()));
+
+        timer.unref?.();
+        timers.set(id, timer);
+    }
+
+    // Called once the initial shuffle/deal animation has finished.
+    async function armTurn(gameId) {
+        const id = String(gameId);
+
+        return withLock(id, async () => {
+            const game = await load(id);
+            if (armedGames.has(id) || game.engine.round === 'finished') return;
+
+            armedGames.add(id);
+            const player = game.engine.participants.find(
+                p => p.refId === game.engine.currentTurn
+            );
+
+            game.turnDeadline =
+                player && player.kind !== 'bot'
+                    ? Date.now() + TURN_MS
+                    : null;
+
+            await gameDao.updatePokerGame(id, {
+                turnDeadline: game.turnDeadline,
+            });
+
+            scheduleTurn(game);
+            await broadcast(game);
+        });
+    }
+
 
     async function startGame(tableId) {
         const table = await tableDao.findTableById(tableId);
