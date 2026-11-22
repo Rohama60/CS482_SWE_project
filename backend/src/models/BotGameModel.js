@@ -9,6 +9,7 @@ const botGameSchema = new mongoose.Schema({
     startChips: { type: mongoose.Schema.Types.Mixed, default: {} },
     settled: { type: Boolean, default: false },
     handNumber: { type: Number, default: 0 },
+    turnDeadline: {type: Number, default: null },
 }, { timestamps: true, minimize: false, strict: false });
 
 export default mongoose.model('BotGame', botGameSchema);

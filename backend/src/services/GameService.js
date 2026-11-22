@@ -98,11 +98,12 @@ export function createGameService(deps) {
             myHand: myCards,
             myHandRanking: myHandRanking,
             myWinProbability: myWinProbability,
+            turnDeadline: game.turnDeadline ?? null,
         };
     }
 
     async function broadcast(game) {
-        emit(tableOf(game), 'game-updated', { gameId: String(game._id), game: toPublicState(game.engine), handNumber: game.handNumber });
+        emit(tableOf(game), 'game-updated', {gameId: String(game._id),game: {...toPublicState(game.engine),turnDeadline: game.turnDeadline ?? null,},handNumber: game.handNumber});
     }
 
     async function applyChipChanges(engine, previousChips, session) {
@@ -123,16 +124,32 @@ export function createGameService(deps) {
 
     // Saves the new engine state and applies chip changes atomically.
     async function commit(game, engine, previousChips) {
+        const id = String(game._id);
+        const player = engine.participants.find(
+            p => p.refId === engine.currentTurn
+        );
+
+        const deadline = armedGames.has(id) &&
+            engine.round !== 'finished' &&
+            player && player.kind !== 'bot'
+                ? Date.now() + TURN_MS
+                : null;
         await gameDao.runInTransaction(async session => {
             if (previousChips) await applyChipChanges(engine, previousChips, session);
-            await gameDao.updatePokerGame(game._id, { engine, ...mirror(engine) }, session);
+                await gameDao.updatePokerGame(
+                        game._id,
+                        { engine, ...mirror(engine), turnDeadline: deadline },
+                        session
+                    );
             if (engine.round === 'finished' && !game.settled) {
-                await tableDao.finishTableGame(tableOf(game), session);
-                await gameDao.updatePokerGame(game._id, { settled: true }, session);
-            }
+                    await tableDao.finishTableGame(tableOf(game), session);
+                    await gameDao.updatePokerGame(game._id, { settled: true }, session);
+                }
         });
         game.engine = engine;
+        game.turnDeadline = deadline;
         if (engine.round === 'finished') game.settled = true;
+        scheduleTurn(game);
         await broadcast(game);
     }
 
@@ -294,6 +311,10 @@ export function createGameService(deps) {
     async function act(gameId, player, action) {
         return withLock(String(gameId), async () => {
             const game = await load(gameId);
+            if (await expireTurn(game)) {
+                void runBots(String(gameId));
+                throw new GameRuleError('Turn timed out');
+            }
             const previousChips = new Map(game.engine.participants.map(p => [p.refId, p.chips]));
             applyBettingAction(game.engine, String(player.refId), action);
             await commit(game, game.engine, previousChips);
@@ -305,6 +326,10 @@ export function createGameService(deps) {
         return withLock(String(gameId), async () => {
             const game = await load(gameId);
             const previousChips = new Map(game.engine.participants.map(p => [p.refId, p.chips]));
+            if (await expireTurn(game)) {
+                void runBots(String(gameId));
+                throw new GameRuleError('Turn timed out');
+            }
             applyDraw(game.engine, String(player.refId), indexes);
             await commit(game, game.engine, previousChips);
             return game;
@@ -370,5 +395,5 @@ export function createGameService(deps) {
         }
     }
 
-    return { startGame, act, draw, leave, runBots, viewFor, load, findLatest: tableId => gameDao.findLatestGameByTableId(tableId) };
+    return { startGame, act, draw, leave, runBots, armTurn, viewFor, load, findLatest: tableId => gameDao.findLatestGameByTableId(tableId) };
 }

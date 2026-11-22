@@ -46,7 +46,7 @@ export type GameState = {
   tiebreak: number[];
   } | null;
   myHand?: CardData[] | null;
-
+  turnDeadline?: number | null
   myWinProbability?: {
   myHandRanking: {
     category: number;

@@ -44,8 +44,10 @@ function scheduleInitialBots(gameId, playerCount) {
 
     const timer = setTimeout(() => {
         pendingBotStarts.delete(id);
-        runBotsSafely(id);
-    }, delay);
+        service.armTurn(id)
+            .then(() => runBotsSafely(id))
+            .catch(err => console.error('Could not start turn timer:', err));
+        }, delay);
 
     pendingBotStarts.set(id, timer);
 }

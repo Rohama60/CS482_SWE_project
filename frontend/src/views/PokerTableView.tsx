@@ -36,29 +36,17 @@ export function PokerTable({table,onLeave,spectating = false,onTakeSeat}: PokerT
   const seatOpen = table.players < table.max
   const watcherCount = table.spectators?.length ?? 1
   const [selected, setSelected] = useState<number[]>([])
-  const [drawAnimation, setDrawAnimation] = useState<{
-  phase: "discard" | "receive";
-  indexes: number[];
-} | null>(null);
+  const [drawAnimation, setDrawAnimation] = useState<{phase: "discard" | "receive"; indexes: number[];} | null>(null);
   const drawInProgress = useRef(false);
-  const [opponentDrawAnimation, setOpponentDrawAnimation] = useState<{
-  opponentIndex: number;
-  count: number;
-  phase: "discard" | "receive";
-} | null>(null);
-const [foldAnimation, setFoldAnimation] = useState<{
-  playerId: string;
-  opponentIndex?: number;
-  cards?: CardData[];
-  phase: "flip" | "travel";
-} | null>(null);
+  const [opponentDrawAnimation, setOpponentDrawAnimation] = useState<{opponentIndex: number;count: number;phase: "discard" | "receive";} | null>(null);
+  const [foldAnimation, setFoldAnimation] = useState<{playerId: string; opponentIndex?: number; cards?: CardData[]; phase: "flip" | "travel";} | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const foldTimer = useRef<number | null>(null);
+  const lastFoldKey = useRef<string | null>(null);
 
-const foldTimer = useRef<number | null>(null);
-const lastFoldKey = useRef<string | null>(null);
-
-const opponentDrawTimers = useRef<number[]>([]);
-const lastOpponentDrawKey = useRef<string | null>(null);
-const viewerRefId = useRef<string | null>(null);
+  const opponentDrawTimers = useRef<number[]>([]);
+  const lastOpponentDrawKey = useRef<string | null>(null);
+  const viewerRefId = useRef<string | null>(null);
   const [hand, setHand] = useState<CardData[]>([])
   const handRef = useRef<CardData[]>([]);
   handRef.current = hand;
@@ -275,6 +263,7 @@ const champions = serverMode
 
 function applyServerGame(g: GameState) {
   setGame(g);
+  setNow(Date.now());
   if (g.myHand) {
     setHand(g.myHand.map(c => ({ rank: c.rank, suit: SUIT_SYMBOLS[c.suit] ?? c.suit })));
   }
@@ -614,6 +603,19 @@ useEffect(() => {
       handNumber?: number;
     }) => {
       const action = data.game?.lastAction;
+      if (data.game) {
+      const updated = data.game;
+
+      setGame(current => current ? {
+        ...current,
+        turnDeadline: updated.turnDeadline ?? null,
+        currentTurn: updated.currentTurn,
+        round: updated.round,
+        participants: updated.participants,
+      } : updated);
+
+      setNow(Date.now());
+    }
 
     if (
       action?.type === "fold" &&
@@ -772,6 +774,18 @@ useEffect(() => {
     };
 
 }, [table.id, spectating]);
+  useEffect(() => {
+    if (!game?.turnDeadline) return;
+
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [game?.turnDeadline]);
+  const secondsLeft = game?.turnDeadline ? Math.max(0, Math.ceil((game.turnDeadline - now) / 1000)): null;
+  const turnPlayer = game?.participants?.find(p => String(p.refId) === String(game.currentTurn));
+  
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#090a0c' }}>
      
@@ -825,10 +839,36 @@ useEffect(() => {
               <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: '#4ade80' }} />
               <span className="text-xs font-medium uppercase tracking-widest" style={{ color: '#e8e4dc', opacity: 0.45 }}>Hand in progress</span>
             </div>
-            <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Hand #143</span>
-          </div>
+            <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Hand #143</span> </div>
+            {serverMode && game?.round !== 'finished' && secondsLeft !== null && (
+              <div
+                role="timer"
+                aria-label="Turn countdown"
+                className="mb-3 flex items-center justify-between rounded-xl border px-4 py-3"
+                style={{
+                  background: '#17191f',
+                  borderColor: secondsLeft <= 10 ? '#ef4444' : '#292c35',
+                }}
+              >
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>
+                    {myTurn ? 'Your turn' : `${turnPlayer?.displayName ?? 'Player'}'s turn`}
+                  </p>
+                  <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.5 }}>
+                    {game?.round === 'drawing'
+                      ? 'Time expires: Automatically stand pat'
+                      : 'Time expires: Automatically fold'}
+                  </p>
+                </div>
 
-          
+                <span
+                  className="text-xl font-bold"
+                  style={{ color: secondsLeft <= 10 ? '#ef4444' : '#e8e4dc' }}
+                >
+                  {secondsLeft}s
+                </span>
+              </div>
+            )}
 <div
   className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]"
   style={{
