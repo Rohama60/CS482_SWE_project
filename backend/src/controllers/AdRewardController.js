@@ -1,5 +1,6 @@
 import Account from '../models/AccountModel.js';
 import Guest from '../models/GuestModel.js';
+import AdClickStat from '../models/AdClickStat.js';
 import { getJoiningPlayer } from './JoinTableController.js';
 
 const AD_REWARDS = {
@@ -7,6 +8,40 @@ const AD_REWARDS = {
     feature: { amount: 1500 },
     premium: { amount: 5000 },
 };
+
+const AD_NAMES = {
+    quick: 'Quick Ad',
+    feature: 'Feature Ad',
+    premium: 'Premium Ad',
+};
+
+export async function GetAdminAdClickStatsController(req, res) {
+    try {
+        const stats = await AdClickStat.find({}).lean();
+        const statsByType = new Map(stats.map(stat => [stat.adType, stat]));
+        const docs = Object.entries(AD_REWARDS).map(([adType, reward]) => {
+            const stat = statsByType.get(adType);
+            return {
+                id: adType,
+                adType,
+                name: AD_NAMES[adType],
+                placement: 'Lobby',
+                rewardChips: reward.amount,
+                clicks: stat?.clicks ?? 0,
+                lastClickedAt: stat?.lastClickedAt ?? null,
+            };
+        }).sort((left, right) => right.clicks - left.clicks);
+
+        return res.status(200).json({
+            docs,
+            totalDocs: docs.length,
+            totalClicks: docs.reduce((total, ad) => total + ad.clicks, 0),
+        });
+    } catch (error) {
+        console.error('Error fetching ad click statistics:', error);
+        return res.status(500).json({ error: 'Unable to load ad click statistics' });
+    }
+}
 
 export async function ClaimAdRewardController(req, res) {
     try {
@@ -19,6 +54,12 @@ export async function ClaimAdRewardController(req, res) {
         if (!player) {
             return res.status(401).json({ error: 'Log in or start a guest session to claim chips' });
         }
+
+        await AdClickStat.findOneAndUpdate(
+            { adType: req.body.adType },
+            { $inc: { clicks: 1 }, $set: { lastClickedAt: new Date() } },
+            { upsert: true, new: true, setDefaultsOnInsert: true },
+        );
 
         const Model = player.kind === 'user' ? Account : Guest;
         const filter = { _id: player.refId };

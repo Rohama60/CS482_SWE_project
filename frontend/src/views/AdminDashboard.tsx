@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AdminSupportInbox } from '../components/support/AdminSupportInbox.tsx'
+import { authClient } from '../AuthClient.ts'
 
 type AdminSection = 'ads' | 'users' | 'poker-tables' | 'support'
 
@@ -13,6 +14,8 @@ type AdminRecord = {
   placement?: string
   status?: string
   rewardChips?: number
+  clicks?: number
+  lastClickedAt?: string | null
   chips?: number
   wins?: number
   stakes?: string
@@ -39,9 +42,11 @@ const ADMIN_SECTIONS: Array<{
 // ==================== ADMIN CONTROL ROOM: users, tables, ads, and player actions ====================
 export function AdminDashboard({
   onLeave,
+  onSignOut,
   onSessionExpired,
 }: {
   onLeave: () => void
+  onSignOut: () => void
   onSessionExpired: () => void
 }) {
   const [section, setSection] = useState<AdminSection>('ads')
@@ -57,6 +62,8 @@ export function AdminDashboard({
   const [passwordDraft, setPasswordDraft] = useState('')
   const [actionError, setActionError] = useState('')
   const [actionPending, setActionPending] = useState(false)
+  const [signOutError, setSignOutError] = useState('')
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -67,7 +74,10 @@ export function AdminDashboard({
       setIsLoading(true)
       setLoadError('')
       try {
-        const response = await fetch(`/api/${section}?limit=50&sort=-updatedAt`, {
+        const url = section === 'ads'
+          ? '/api/admin/ads?limit=50&sort=-clicks'
+          : `/api/${section}?limit=50&sort=-updatedAt`
+        const response = await fetch(url, {
           credentials: 'include',
           signal: controller.signal,
         })
@@ -79,7 +89,10 @@ export function AdminDashboard({
         if (!response.ok) throw new Error('Unable to load records')
 
         const data = await response.json() as { docs?: AdminRecord[]; totalDocs?: number }
-        setRecords(data.docs ?? [])
+        const loadedRecords = data.docs ?? []
+        setRecords(section === 'ads'
+          ? [...loadedRecords].sort((left, right) => (right.clicks ?? 0) - (left.clicks ?? 0))
+          : loadedRecords)
         setTotal(data.totalDocs ?? 0)
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
@@ -161,10 +174,20 @@ export function AdminDashboard({
   }
 
   async function signOut() {
+    setIsSigningOut(true)
+    setSignOutError('')
     try {
-      await fetch('/api/users/logout', { method: 'POST', credentials: 'include' })
+      const { error } = await authClient.signOut()
+      if (error) {
+        setSignOutError(error.message || 'Unable to sign out. Please try again.')
+        return
+      }
+      onSignOut()
+    } catch (error) {
+      console.error('Admin sign out failed:', error)
+      setSignOutError('Unable to sign out. Please try again.')
     } finally {
-      onLeave()
+      setIsSigningOut(false)
     }
   }
 
@@ -179,7 +202,12 @@ export function AdminDashboard({
   }
 
   function recordMeta(record: AdminRecord) {
-    if (section === 'ads') return `${record.placement ?? 'No placement'} · ${record.rewardChips ?? 0} reward chips`
+    if (section === 'ads') {
+      const lastClicked = record.lastClickedAt
+        ? new Date(record.lastClickedAt).toLocaleString()
+        : 'Never'
+      return `${record.clicks ?? 0} clicks · ${record.placement ?? 'No placement'} · ${record.rewardChips ?? 0} reward chips · Last clicked ${lastClicked}`
+    }
     if (section === 'users') return `${record.email ?? 'No email'} · ${record.chips ?? 0} chips · ${record.wins ?? 0} wins`
     return `${record.stakes ?? 'No stakes'} stakes · ${record.playerCount ?? 0}/${record.seats ?? 0} players seated · avg pot ${record.averagePot ?? '—'}`
   }
@@ -198,15 +226,17 @@ export function AdminDashboard({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {signOutError && <p role="alert" className="text-xs" style={{ color: '#f0a097' }}>{signOutError}</p>}
           <span className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: '#86efac' }}>
             Secure session
           </span>
           <button
             onClick={signOut}
+            disabled={isSigningOut}
             className="rounded-lg px-4 py-2 text-xs font-semibold"
-            style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc' }}
+            style={{ background: '#1c1e25', border: '1px solid #343743', color: '#e8e4dc', opacity: isSigningOut ? 0.6 : 1 }}
           >
-            Sign out
+            {isSigningOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       </header>
@@ -251,11 +281,17 @@ export function AdminDashboard({
 
         {section === 'support' ? <AdminSupportInbox /> : (<>
         <div className="grid grid-cols-1 gap-3 mb-6 md:grid-cols-3">
-          {[
-            ['Records', String(total)],
-            ['Active section', activeSection.label],
-            ['Access level', 'Moderator tools'],
-          ].map(([label, value]) => (
+          {(section === 'ads'
+            ? [
+                ['Tracked ads', String(total)],
+                ['Total clicks', String(records.reduce((sum, record) => sum + (record.clicks ?? 0), 0))],
+                ['Most clicked', records[0]?.clicks ? recordTitle(records[0]) : 'No clicks yet'],
+              ]
+            : [
+                ['Records', String(total)],
+                ['Active section', activeSection.label],
+                ['Access level', 'Moderator tools'],
+              ]).map(([label, value]) => (
             <div key={label} className="rounded-xl px-5 py-4" style={{ background: '#161820', border: '1px solid #292c35' }}>
               <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.38 }}>{label}</p>
               <p className="mt-1 text-xl font-semibold" style={{ color: '#e8e4dc', fontFamily: 'var(--font-display)' }}>{value}</p>
@@ -305,12 +341,20 @@ export function AdminDashboard({
                       <span
                         className="rounded-full px-3 py-1 text-xs font-semibold"
                         style={{
-                          background: record.status === 'banned' ? 'rgba(192,57,43,0.18)' : 'rgba(34,197,94,0.1)',
-                          border: `1px solid ${record.status === 'banned' ? 'rgba(192,57,43,0.35)' : 'rgba(34,197,94,0.25)'}`,
-                          color: record.status === 'banned' ? '#f0a097' : '#86efac',
+                          background: section === 'ads' && record.clicks && record.id === records[0]?.id
+                            ? 'rgba(192,57,43,0.18)'
+                            : record.status === 'banned' ? 'rgba(192,57,43,0.18)' : 'rgba(34,197,94,0.1)',
+                          border: `1px solid ${section === 'ads' && record.clicks && record.id === records[0]?.id
+                            ? 'rgba(192,57,43,0.35)'
+                            : record.status === 'banned' ? 'rgba(192,57,43,0.35)' : 'rgba(34,197,94,0.25)'}`,
+                          color: section === 'ads' && record.clicks && record.id === records[0]?.id
+                            ? '#f0a097'
+                            : record.status === 'banned' ? '#f0a097' : '#86efac',
                         }}
                       >
-                        {record.status ?? 'Configured'}
+                        {section === 'ads'
+                          ? record.clicks && record.id === records[0]?.id ? 'Most clicked' : 'Tracked'
+                          : record.status ?? 'Configured'}
                       </span>
                       {section === 'users' && (
                         <>

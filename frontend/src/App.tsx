@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Home from './views/Home.tsx'
 import { SignUpView } from './views/SignUpView.tsx'
 import { Lobby } from './views/Lobby.tsx'
@@ -42,6 +42,35 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false)
   const { data: session } = authClient.useSession()
 
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    const controller = new AbortController()
+    async function restoreAdminView() {
+      try {
+        const response = await fetch('/api/users/me', {
+          credentials: 'include',
+          signal: controller.signal,
+        })
+        if (!response.ok) {
+          throw new Error('Unable to load the current user role')
+        }
+
+        const result = await response.json() as { user?: { role?: string } }
+        if (result.user?.role === 'admin') {
+          setView('admin')
+        }
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Unable to restore the admin dashboard:', error)
+        }
+      }
+    }
+
+    void restoreAdminView()
+    return () => controller.abort()
+  }, [session?.user?.id])
+
   function openProfile(returnTo: View) {
     setProfileReturnView(returnTo)
     setView('profile')
@@ -75,6 +104,7 @@ export default function App() {
     return (
       <AdminDashboard
         onLeave={() => setView('lobby')}
+        onSignOut={() => setView('home')}
         onSessionExpired={() => setView('home')}
       />
     )

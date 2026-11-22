@@ -5,6 +5,10 @@ import '@testing-library/jest-dom'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminDashboard } from '../src/views/AdminDashboard.tsx'
+const mockAuthSignOut = jest.fn()
+jest.mock('../src/AuthClient.ts', () => ({
+  authClient: { signOut: (...args) => mockAuthSignOut(...args) },
+}))
 // P18: the Support section's inbox has its own tests (AdminSupportInbox.test.jsx), so it's faked here
 jest.mock('../src/components/support/AdminSupportInbox.tsx', () => ({ AdminSupportInbox: () => <div>Support inbox</div> }))
 // ---------------------------------------------------------------
@@ -18,16 +22,18 @@ return { ok, status, json: async () => body }
 function setupFetch(lists = {}, mutate = () => reply({})) {
 global.fetch = jest.fn((url, options = {}) => {
 if (options.method) return Promise.resolve(mutate(url, options))
-const section = String(url).split('?')[0].replace('/api/', '')
+const path = String(url).split('?')[0].replace('/api/', '')
+const section = path === 'admin/ads' ? 'ads' : path
 const body = lists[section] ?? { docs: [], totalDocs: 0 }
 return Promise.resolve(typeof body === 'function' ? body() : reply(body))
 })
 }
 function renderDashboard() {
 const onLeave = jest.fn()
+const onSignOut = jest.fn()
 const onSessionExpired = jest.fn()
-render(<AdminDashboard onLeave={onLeave} onSessionExpired={onSessionExpired} />)
-return { onLeave, onSessionExpired }
+render(<AdminDashboard onLeave={onLeave} onSignOut={onSignOut} onSessionExpired={onSessionExpired} />)
+return { onLeave, onSignOut, onSessionExpired }
 }
 const callsTo = (prefix) => global.fetch.mock.calls.filter(([url]) => String(url).startsWith(prefix))
 const MARA = { id: 'u1', displayName: 'Mara', username: 'mara', email: 'mara@x.com', chips: 500, wins: 3, status: 'active' }
@@ -48,7 +54,7 @@ setupFetch()
 renderDashboard()
 await waitFor(() => expect(global.fetch).toHaveBeenCalled())
 expect(global.fetch).toHaveBeenCalledWith(
-'/api/ads?limit=50&sort=-updatedAt',
+'/api/admin/ads?limit=50&sort=-clicks',
 expect.objectContaining({ credentials: 'include' })
 )
 expect(screen.getByRole('heading', { level: 1, name: 'Ads' })).toBeInTheDocument()
@@ -60,18 +66,35 @@ expect(screen.getByText('Loading secure records…')).toBeInTheDocument()
 })
 test('lists the records that come back', async () => {
 setupFetch({
-ads: { docs: [{ id: 1, name: 'Welcome Bonus', placement: 'Lobby', rewardChips: 25 }], totalDocs: 1 },
+ads: { docs: [{ id: 1, name: 'Welcome Bonus', placement: 'Lobby', rewardChips: 25, clicks: 12 }], totalDocs: 3, totalClicks: 12 },
 })
 renderDashboard()
-expect(await screen.findByText('Welcome Bonus')).toBeInTheDocument()
-expect(screen.getByText('Lobby · 25 reward chips')).toBeInTheDocument()
+expect(await screen.findAllByText('Welcome Bonus')).not.toHaveLength(0)
+expect(screen.getByText('12 clicks · Lobby · 25 reward chips · Last clicked Never')).toBeInTheDocument()
+expect(screen.getByText('Total clicks').nextSibling).toHaveTextContent('12')
+})
+test('ranks the ad with the most clicks first', async () => {
+setupFetch({
+ads: {
+docs: [
+{ id: 'quick', name: 'Quick Ad', clicks: 2 },
+{ id: 'feature', name: 'Feature Ad', clicks: 9 },
+{ id: 'premium', name: 'Premium Ad', clicks: 0 },
+],
+totalDocs: 3,
+},
+})
+renderDashboard()
+expect(await screen.findAllByText('Feature Ad')).not.toHaveLength(0)
+expect(screen.getByText('Most clicked', { selector: 'p' }).nextSibling).toHaveTextContent('Feature Ad')
+expect(screen.getByText('Most clicked', { selector: 'span' })).toBeInTheDocument()
 })
 test('shows the total number of records and the active section', async () => {
 setupFetch({ ads: { docs: [{ id: 1, name: 'A' }], totalDocs: 7 } })
 renderDashboard()
 await screen.findByText('A')
-expect(screen.getByText('Records').nextSibling).toHaveTextContent('7')
-expect(screen.getByText('Active section').nextSibling).toHaveTextContent('Ads')
+expect(screen.getByText('Tracked ads').nextSibling).toHaveTextContent('7')
+expect(screen.getByText('Total clicks').nextSibling).toHaveTextContent('0')
 })
 test('shows an empty message when there are no records', async () => {
 setupFetch()
@@ -116,10 +139,10 @@ expect(await screen.findByText('By Display Name')).toBeInTheDocument()
 expect(screen.getByText('only@email.com')).toBeInTheDocument()
 expect(screen.getByText('Untitled record')).toBeInTheDocument()
 })
-test('ads use sensible defaults for missing details', async () => {
+test('ads show a zero-click count when the ad has not been clicked yet', async () => {
 setupFetch({ ads: { docs: [{ id: 1, name: 'Promo' }], totalDocs: 1 } })
 renderDashboard()
-expect(await screen.findByText('No placement · 0 reward chips')).toBeInTheDocument()
+expect(await screen.findByText('0 clicks · No placement · 0 reward chips · Last clicked Never')).toBeInTheDocument()
 })
 test('users show email, chips and wins', async () => {
 await openUsers()
@@ -379,15 +402,23 @@ const { onLeave } = renderDashboard()
 await userEvent.click(screen.getByRole('button', { name: 'View public site' }))
 expect(onLeave).toHaveBeenCalledTimes(1)
 })
-test('Sign out calls the logout endpoint, then leaves', async () => {
+test('Sign out clears the session and routes home', async () => {
+mockAuthSignOut.mockResolvedValue({ error: null })
 setupFetch()
-const { onLeave } = renderDashboard()
+const { onLeave, onSignOut } = renderDashboard()
 await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
-await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1))
-expect(global.fetch).toHaveBeenCalledWith(
-'/api/users/logout',
-expect.objectContaining({ method: 'POST', credentials: 'include' })
-)
+await waitFor(() => expect(onSignOut).toHaveBeenCalledTimes(1))
+expect(mockAuthSignOut).toHaveBeenCalledTimes(1)
+expect(onLeave).not.toHaveBeenCalled()
+expect(callsTo('/api/users/logout')).toHaveLength(0)
+})
+test('a failed sign out keeps the admin on the dashboard and shows an error', async () => {
+mockAuthSignOut.mockResolvedValue({ error: { message: 'Session could not be cleared' } })
+setupFetch()
+const { onSignOut } = renderDashboard()
+await userEvent.click(screen.getByRole('button', { name: 'Sign out' }))
+expect(await screen.findByRole('alert')).toHaveTextContent('Session could not be cleared')
+expect(onSignOut).not.toHaveBeenCalled()
 })
 })
 
@@ -403,7 +434,7 @@ expect(screen.queryByText('Active section')).not.toBeInTheDocument()
 test('the Support section does not ask for records', async () => {
 setupFetch()
 renderDashboard()
-await waitFor(() => expect(callsTo('/api/ads')).toHaveLength(1))
+await waitFor(() => expect(callsTo('/api/admin/ads')).toHaveLength(1))
 await userEvent.click(screen.getByRole('button', { name: /Player messages and replies/ }))
 expect(callsTo('/api/support')).toHaveLength(0)
 })

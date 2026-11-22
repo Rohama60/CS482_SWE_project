@@ -73,6 +73,16 @@ describe('Login popup', () => {
     expect(mockNotify).toHaveBeenCalledWith('$sessionSignal')
   })
 
+  test('passes the admin role to the app after a successful admin login', async () => {
+    mockFetchOnce({ body: { user: { id: 'admin-1', role: 'admin' } } })
+    const { onSuccess } = setup()
+
+    fillIn('admin@example.com', 'password123')
+    submit()
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('admin'))
+  })
+
   test('still logs in if refreshing the session throws', async () => {
     mockFetchOnce({ body: { user: { id: 'u1' } } })
     mockNotify.mockImplementationOnce(() => { throw new Error('no store') })

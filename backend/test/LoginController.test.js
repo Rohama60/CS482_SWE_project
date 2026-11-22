@@ -2,10 +2,14 @@ import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import { APIError } from 'better-auth/api';
 
 const mockSignInEmail = jest.fn();
+const mockFindAccount = jest.fn();
 
 // Fake Better Auth so no database is used
 jest.unstable_mockModule('../src/Auth.js', () => ({
     auth: { api: { signInEmail: mockSignInEmail } }
+}));
+jest.unstable_mockModule('../src/models/AccountModel.js', () => ({
+    default: { findOne: mockFindAccount }
 }));
 
 const { LoginController } = await import('../src/controllers/LoginController.js');
@@ -22,6 +26,7 @@ describe('Login Controller', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         jest.spyOn(console, 'error').mockImplementation(() => {});
+        mockFindAccount.mockResolvedValue({ role: 'player' });
     });
 
     test('logs in with the right email and password and sends the session cookie', async () => {
@@ -41,7 +46,28 @@ describe('Login Controller', () => {
         expect(res.setHeader).toHaveBeenCalledWith('set-cookie', 'session=abc');
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.json).toHaveBeenCalledWith({
-            user: { id: 'u1', name: 'Preston', email: 'preston@example.com' }
+            user: { id: 'u1', name: 'Preston', email: 'preston@example.com', role: 'player' }
+        });
+    });
+
+    test('includes the application admin role after authenticating the account', async () => {
+        mockSignInEmail.mockResolvedValue({
+            response: { user: { id: 'admin-user-id', name: 'Test Admin', email: 'admin@example.com' } },
+            headers: new Headers()
+        });
+        mockFindAccount.mockResolvedValue({ role: 'admin' });
+        const res = makeRes();
+
+        await LoginController(loginReq({ email: 'admin@example.com', password: 'password123' }), res);
+
+        expect(mockFindAccount).toHaveBeenCalledWith({ userId: 'admin-user-id' });
+        expect(res.json).toHaveBeenCalledWith({
+            user: {
+                id: 'admin-user-id',
+                name: 'Test Admin',
+                email: 'admin@example.com',
+                role: 'admin'
+            }
         });
     });
 
@@ -53,6 +79,7 @@ describe('Login Controller', () => {
 
         expect(mockSignInEmail.mock.calls[0][0].body.email).toBe('preston@example.com');
         expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith({ user: { id: 'u1', role: 'player' } });
     });
 
     test('works when Better Auth sends no headers or user back', async () => {

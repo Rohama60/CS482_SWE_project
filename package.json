@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite frontend --config frontend/vite.config.ts",
+    "seed:test-admin": "node backend/scripts/seedTestAdmin.js",
     "build": "vite build frontend --config frontend/vite.config.ts",
     "preview": "vite preview frontend --config frontend/vite.config.ts",
     "format": "oxfmt",

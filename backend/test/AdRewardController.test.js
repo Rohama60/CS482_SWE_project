@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 const mockAccountUpdate = jest.fn();
 const mockGuestUpdate = jest.fn();
+const mockAdClickUpdate = jest.fn();
+const mockAdClickFind = jest.fn();
 const mockGetJoiningPlayer = jest.fn();
 
 jest.unstable_mockModule('../src/models/AccountModel.js', () => ({
@@ -10,11 +12,20 @@ jest.unstable_mockModule('../src/models/AccountModel.js', () => ({
 jest.unstable_mockModule('../src/models/GuestModel.js', () => ({
   default: { findOneAndUpdate: mockGuestUpdate },
 }));
+jest.unstable_mockModule('../src/models/AdClickStat.js', () => ({
+  default: {
+    findOneAndUpdate: mockAdClickUpdate,
+    find: mockAdClickFind,
+  },
+}));
 jest.unstable_mockModule('../src/controllers/JoinTableController.js', () => ({
   getJoiningPlayer: mockGetJoiningPlayer,
 }));
 
-const { ClaimAdRewardController } = await import('../src/controllers/AdRewardController.js');
+const {
+  ClaimAdRewardController,
+  GetAdminAdClickStatsController,
+} = await import('../src/controllers/AdRewardController.js');
 
 function mockResponse() {
   const res = {};
@@ -30,6 +41,7 @@ describe('ClaimAdRewardController', () => {
 
   test('awards the fixed quick reward and records its hourly cooldown', async () => {
     mockGetJoiningPlayer.mockResolvedValue({ kind: 'user', refId: 'account-id' });
+    mockAdClickUpdate.mockResolvedValue({});
     mockAccountUpdate.mockResolvedValue({ chipamount: 1000 });
     const res = mockResponse();
 
@@ -46,12 +58,18 @@ describe('ClaimAdRewardController', () => {
       }),
       { new: true },
     );
+    expect(mockAdClickUpdate).toHaveBeenCalledWith(
+      { adType: 'quick' },
+      { $inc: { clicks: 1 }, $set: { lastClickedAt: expect.any(Date) } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ chipamount: 1000, reward: 500 });
   });
 
   test('applies the reward to the authenticated guest account', async () => {
     mockGetJoiningPlayer.mockResolvedValue({ kind: 'guest', refId: 'guest-id' });
+    mockAdClickUpdate.mockResolvedValue({});
     mockGuestUpdate.mockResolvedValue({ chipamount: 2000 });
     const res = mockResponse();
 
@@ -80,6 +98,7 @@ describe('ClaimAdRewardController', () => {
 
   test('does not award quick chips again during the cooldown', async () => {
     mockGetJoiningPlayer.mockResolvedValue({ kind: 'user', refId: 'account-id' });
+    mockAdClickUpdate.mockResolvedValue({});
     mockAccountUpdate.mockResolvedValue(null);
     const res = mockResponse();
 
@@ -87,5 +106,29 @@ describe('ClaimAdRewardController', () => {
 
     expect(res.status).toHaveBeenCalledWith(429);
     expect(mockAccountUpdate).toHaveBeenCalledTimes(1);
+    expect(mockAdClickUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns all ad types ranked by their persistent click counts', async () => {
+    mockAdClickFind.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([
+        { adType: 'feature', clicks: 7, lastClickedAt: new Date('2026-01-02T03:04:05Z') },
+        { adType: 'quick', clicks: 2 },
+      ]),
+    });
+    const res = mockResponse();
+
+    await GetAdminAdClickStatsController({}, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({
+      docs: [
+        expect.objectContaining({ id: 'feature', name: 'Feature Ad', clicks: 7 }),
+        expect.objectContaining({ id: 'quick', name: 'Quick Ad', clicks: 2 }),
+        expect.objectContaining({ id: 'premium', name: 'Premium Ad', clicks: 0 }),
+      ],
+      totalDocs: 3,
+      totalClicks: 9,
+    });
   });
 });

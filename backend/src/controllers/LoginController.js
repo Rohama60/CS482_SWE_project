@@ -1,5 +1,6 @@
 import { APIError } from 'better-auth/api';
 import { auth } from '../Auth.js';
+import Account from '../models/AccountModel.js';
 
 // Login: a member signs in with their email and password.
 // Better Auth checks the password and sends back the session cookie.
@@ -16,9 +17,16 @@ export async function LoginController(req, res) {
             returnHeaders: true,
         });
 
+        const user = result.response?.user ?? null;
+        const account = user?.id
+            ? await Account.findOne({ userId: user.id })
+            : null;
+
         // Passes the session cookie on to the browser
         result.headers?.forEach((value, key) => res.setHeader(key, value));
-        return res.status(200).json({ user: result.response?.user ?? null });
+        return res.status(200).json({
+            user: user ? { ...user, role: account?.role ?? 'player' } : null,
+        });
     } catch (error) {
         if (error instanceof APIError) {
             // Wrong email or password. Same message either way so nobody can tell which emails exist.
