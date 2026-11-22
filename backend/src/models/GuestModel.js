@@ -6,6 +6,7 @@ const guestSchema = new mongoose.Schema({
     displayName: { type: String, required: true },
     chipamount: { type: Number, default: 500, min: 0 },
     role: { type: String, default: 'guest' },
+    lastQuickAdAt: { type: Date },
     createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 },
 });
 

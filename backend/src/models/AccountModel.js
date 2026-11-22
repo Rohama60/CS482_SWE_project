@@ -19,6 +19,7 @@ const accountSchema = new mongoose.Schema({
         default: ['scarlet-ace', 'midnight-club']
     },
     customAvatar: { type: String, select: false },
+    lastQuickAdAt: { type: Date },
     role: { 
         type: String, 
         enum: ['player', 'admin'],

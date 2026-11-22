@@ -50,4 +50,38 @@ describe('GetLeaderboardController', () => {
       }],
     });
   });
+
+  test('uses the username and zero defaults when optional ranking fields are missing', async () => {
+    mockLean.mockResolvedValue([{
+      userId: 'legacy-user-id',
+      username: 'old-player',
+    }]);
+    const res = mockResponse();
+
+    await GetLeaderboardController({}, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      players: [{
+        id: 'legacy-user-id',
+        name: 'old-player',
+        chips: 0,
+        wins: 0,
+        handsPlayed: 0,
+      }],
+    });
+  });
+
+  test('returns a server error when the leaderboard query fails', async () => {
+    const error = new Error('database unavailable');
+    mockLean.mockRejectedValue(error);
+    const res = mockResponse();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await GetLeaderboardController({}, res);
+
+    expect(consoleError).toHaveBeenCalledWith('Error fetching leaderboard:', error);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Failed to load leaderboard' });
+    consoleError.mockRestore();
+  });
 });

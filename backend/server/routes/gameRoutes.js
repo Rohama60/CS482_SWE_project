@@ -4,6 +4,7 @@ import {
     GetPlayerHandController,
     GetPlayerChipsController,
 } from '../../src/controllers/PokerGameController.js';
+import { ClaimAdRewardController } from '../../src/controllers/AdRewardController.js';
 import {
     CreateBotGameController,
     BotGameActionController,
@@ -24,5 +25,6 @@ botGameRouter.get('/:gameId', GetBotGameController);
 
 export const playerRouter = Router();
 playerRouter.get('/me/chips', GetPlayerChipsController);
+playerRouter.post('/me/ad-reward', ClaimAdRewardController);
 
 export default router;

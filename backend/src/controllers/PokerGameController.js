@@ -159,6 +159,7 @@ export async function GetPlayerChipsController(req, res) {
             });
         }
 
+
         console.time('CHIPS DB');
         const account = await getPlayerChips(player);
         console.timeEnd('CHIPS DB');
