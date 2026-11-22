@@ -10,6 +10,9 @@ import { AudioSettings } from '../components/AudioSettings.tsx'
 import { AdSlot } from '../components/lobby/AdSlot'
 import { SeatDots } from '../components/lobby/SeatDots'
 import { GameHistory } from '../components/history/GameHistory'
+import { SupportChat } from '../components/support/SupportChat.tsx'
+import { SupportButton } from '../components/support/SupportButton.tsx'
+import { getMyUnread } from '../supportApi.ts'
 type LobbyProps = {
   onBack: () => void;
   onJoin: (table: PokerTableData) => void;
@@ -46,6 +49,9 @@ export function Lobby({ onBack, onJoin, onSpectate, onSignUp, onProfile, onHisto
   const [showCreateTable, setShowCreateTable] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  // P18: the chat with an admin (Help in the name menu), and how many admin replies you haven't read
+  const [showSupport, setShowSupport] = useState(false)
+  const [supportUnread, setSupportUnread] = useState(0)
   // P11: how many friend requests are waiting, for the badge on the Friends button
   const [requestCount, setRequestCount] = useState(0)
   const [tables, setTables] = useState<PokerTableData[]>([])
@@ -335,6 +341,16 @@ async function handleSignOut() {
   }
 }
 
+  // P18: check for unread admin replies. Re-checks when you close the chat.
+  useEffect(() => {
+    if (!session?.user || showSupport) return
+    let active = true
+    getMyUnread()
+      .then(count => { if (active) setSupportUnread(count) })
+      .catch(() => { /* no dot if this fails */ })
+    return () => { active = false }
+  }, [session?.user?.id, showSupport])
+
 if (showFriends && isAuthenticated) {
     return (
       <FriendsPage
@@ -359,14 +375,16 @@ if (showHistory && isAuthenticated) {
   )
 }
 return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b' }}>
+    // P18: extra space at the bottom for members, so nothing gets stuck under the Chat with admin button
+    <div className="min-h-screen flex flex-col" style={{ background: '#0a0a0b', paddingBottom: isAuthenticated ? 96 : undefined }}>
       {/* Red top line */}
       <div className="absolute top-0 left-0 right-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, #c0392b 30%, #c0392b 70%, transparent)' }} />
       {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(90,10,10,0.45) 0%, transparent 70%)' }} />
 
       {/* Top bar */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#1c1e25' }}>
+      {/* zIndex 30 keeps the name dropdown above the lobby below it, so every menu item can be clicked */}
+      <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: '#1c1e25', zIndex: 30 }}>
         <div className="flex items-center gap-4">
         <button
              onClick={onBack}
@@ -422,6 +440,13 @@ return (
                 >
                   <span style={{ color: '#c0392b' }}>♠</span>
                   {session.user.name}
+                  {/* P18: a red dot when an admin has replied and you haven't read it */}
+                  {supportUnread > 0 && (
+                    <span
+                      title="New replies from an admin"
+                      style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#e05c4e' }}
+                    />
+                  )}
                   <span className="text-[9px] ml-1" style={{ opacity: 0.45 }}>
                     {showProfileMenu ? '▲' : '▼'}
                   </span>
@@ -469,6 +494,34 @@ return (
                     >
                       <span style={{ color: '#c0392b' }}>◷</span>
                       History
+                    </button>
+                    {/* P18: chat with an admin */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowProfileMenu(false)
+                        setShowSupport(true)
+                        setSupportUnread(0)
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-left transition-all hover:bg-white/5"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#e8e4dc'
+                      }}
+                    >
+                      <span style={{ color: '#c0392b' }}>✉</span>
+                      Help
+                      {supportUnread > 0 && (
+                        <span
+                          className="rounded-full text-xs"
+                          title="New replies from an admin"
+                          style={{ marginLeft: 'auto', padding: '0 6px', background: 'rgba(192,57,43,0.25)', color: '#f0a097' }}
+                        >
+                          {supportUnread}
+                        </span>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -975,6 +1028,18 @@ return (
         onUpdate={handleUpdateTable}
       />
     )}  
+      {/* P18: chat with an admin, from the bottom-left button or Help in the name menu */}
+      {showSupport && isAuthenticated && <SupportChat corner="bottom-left" onClose={() => setShowSupport(false)} />}
+      {isAuthenticated && (
+        <SupportButton
+          open={showSupport}
+          unread={supportUnread}
+          onClick={() => {
+            setShowSupport(open => !open)
+            setSupportUnread(0)
+          }}
+        />
+      )}
     </div>
   )
 }

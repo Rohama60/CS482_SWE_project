@@ -5,6 +5,8 @@ import '@testing-library/jest-dom'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AdminDashboard } from '../src/views/AdminDashboard.tsx'
+// P18: the Support section's inbox has its own tests (AdminSupportInbox.test.jsx), so it's faked here
+jest.mock('../src/components/support/AdminSupportInbox.tsx', () => ({ AdminSupportInbox: () => <div>Support inbox</div> }))
 // ---------------------------------------------------------------
 // The dashboard only talks to the server through fetch, so these tests
 // replace fetch with a fake. No network, no other modules to mock.
@@ -386,5 +388,31 @@ expect(global.fetch).toHaveBeenCalledWith(
 '/api/users/logout',
 expect.objectContaining({ method: 'POST', credentials: 'include' })
 )
+})
+})
+
+describe('AdminDashboard: Support section (P18)', () => {
+test('has a Support section that shows the support inbox', async () => {
+setupFetch()
+renderDashboard()
+await userEvent.click(screen.getByRole('button', { name: /Player messages and replies/ }))
+expect(screen.getByRole('heading', { level: 1, name: 'Support' })).toBeInTheDocument()
+expect(screen.getByText('Support inbox')).toBeInTheDocument()
+expect(screen.queryByText('Active section')).not.toBeInTheDocument()
+})
+test('the Support section does not ask for records', async () => {
+setupFetch()
+renderDashboard()
+await waitFor(() => expect(callsTo('/api/ads')).toHaveLength(1))
+await userEvent.click(screen.getByRole('button', { name: /Player messages and replies/ }))
+expect(callsTo('/api/support')).toHaveLength(0)
+})
+test('going back to another section shows its records again', async () => {
+setupFetch()
+renderDashboard()
+await userEvent.click(screen.getByRole('button', { name: /Player messages and replies/ }))
+await userEvent.click(screen.getByRole('button', { name: /Player accounts, balances, and status/ }))
+expect(screen.queryByText('Support inbox')).not.toBeInTheDocument()
+expect(await screen.findByText('Active section')).toBeInTheDocument()
 })
 })

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { AdminSupportInbox } from '../components/support/AdminSupportInbox.tsx'
 
-type AdminSection = 'ads' | 'users' | 'poker-tables'
+type AdminSection = 'ads' | 'users' | 'poker-tables' | 'support'
 
 type AdminRecord = {
   id: string | number
@@ -31,6 +32,8 @@ const ADMIN_SECTIONS: Array<{
   { slug: 'ads', label: 'Ads', eyebrow: 'Revenue', description: 'Reward campaigns and lobby placements' },
   { slug: 'users', label: 'Users', eyebrow: 'Community', description: 'Player accounts, balances, and status' },
   { slug: 'poker-tables', label: 'Tables', eyebrow: 'Game floor', description: 'Stakes, seats, bots, and availability' },
+  // P18 Chat with Admin (Preston): player messages and replies
+  { slug: 'support', label: 'Support', eyebrow: 'Help desk', description: 'Player messages and replies' },
 ]
 
 // ==================== ADMIN CONTROL ROOM: users, tables, ads, and player actions ====================
@@ -59,6 +62,8 @@ export function AdminDashboard({
     const controller = new AbortController()
 
     async function loadRecords() {
+      // P18: the Support section loads its own messages, so there are no records to fetch
+      if (section === 'support') return
       setIsLoading(true)
       setLoadError('')
       try {
@@ -222,7 +227,7 @@ export function AdminDashboard({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 mb-8 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 mb-8 md:grid-cols-2">
           {ADMIN_SECTIONS.map(item => (
             <button
               key={item.slug}
@@ -244,6 +249,7 @@ export function AdminDashboard({
           ))}
         </div>
 
+        {section === 'support' ? <AdminSupportInbox /> : (<>
         <div className="grid grid-cols-1 gap-3 mb-6 md:grid-cols-3">
           {[
             ['Records', String(total)],
@@ -354,6 +360,7 @@ export function AdminDashboard({
             )}
           </div>
         </section>
+        </>)}
       </main>
 
       {editingUser && (

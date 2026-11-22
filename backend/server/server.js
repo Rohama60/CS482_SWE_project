@@ -9,12 +9,14 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth, mongoClient } from '../src/Auth.js';
 import { LoginController } from '../src/controllers/LoginController.js';
 import { registerChatHandlers } from '../src/controllers/ChatController.js';
+import { registerSupportHandlers } from '../src/controllers/SupportController.js';
 import { SignUpController } from '../src/controllers/SignUpController.js';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import friendRoutes from './routes/friendRoutes.js';
 import chatMuteRoutes from './routes/chatMuteRoutes.js';
 import historyRoutes from './routes/historyRoutes.js';
+import { supportRouter, adminSupportRouter } from './routes/supportRoutes.js';
 import tableRoutes from './routes/tableRoutes.js';
 import guestRoutes from './routes/guestRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -56,6 +58,8 @@ app.use('/api', memberRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/chat/mutes', chatMuteRoutes);
 app.use('/api/history', historyRoutes);
+app.use('/api/support', supportRouter);
+app.use('/api/admin/support', adminSupportRouter);
 app.use('/api/tables', tableRoutes);
 app.use('/api/guests', guestRoutes);
 app.use('/api/users', userRoutes);
@@ -202,6 +206,8 @@ io.on('connection', (socket) => {
     });
     // M3: table chat
     registerChatHandlers(io, socket);
+    // P18: chat with admin
+    registerSupportHandlers(io, socket);
 });
 
 async function startingServer() {
