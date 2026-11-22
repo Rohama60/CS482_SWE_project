@@ -840,35 +840,7 @@ useEffect(() => {
               <span className="text-xs font-medium uppercase tracking-widest" style={{ color: '#e8e4dc', opacity: 0.45 }}>Hand in progress</span>
             </div>
             <span className="text-xs" style={{ color: '#e8e4dc', opacity: 0.35 }}>Hand #143</span> </div>
-            {serverMode && game?.round !== 'finished' && secondsLeft !== null && (
-              <div
-                role="timer"
-                aria-label="Turn countdown"
-                className="mb-3 flex items-center justify-between rounded-xl border px-4 py-3"
-                style={{
-                  background: '#17191f',
-                  borderColor: secondsLeft <= 10 ? '#ef4444' : '#292c35',
-                }}
-              >
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: '#e8e4dc' }}>
-                    {myTurn ? 'Your turn' : `${turnPlayer?.displayName ?? 'Player'}'s turn`}
-                  </p>
-                  <p className="text-xs" style={{ color: '#e8e4dc', opacity: 0.5 }}>
-                    {game?.round === 'drawing'
-                      ? 'Time expires: Automatically stand pat'
-                      : 'Time expires: Automatically fold'}
-                  </p>
-                </div>
-
-                <span
-                  className="text-xl font-bold"
-                  style={{ color: secondsLeft <= 10 ? '#ef4444' : '#e8e4dc' }}
-                >
-                  {secondsLeft}s
-                </span>
-              </div>
-            )}
+            
 <div
   className="relative min-h-[36rem] overflow-hidden rounded-[2rem] border sm:min-h-[40rem]"
   style={{
@@ -1086,7 +1058,7 @@ useEffect(() => {
   return (
     <PlayerSeat
       key={player.refId}
-      name={`${player.displayName}${player.folded ? ' · folded' : player.allIn ? ' · all-in' : ''}`}
+      name={`${player.displayName}${player.folded ? ' · folded' : player.allIn ? ' · all-in' : ''}${game!.currentTurn === player.refId && secondsLeft !== null? ` · ${secondsLeft}s`: ''}`}
       chips={`$${player.chips}`}
       dealer={false}
       active={String(game!.currentTurn) === String(player.refId)}
@@ -1198,22 +1170,44 @@ useEffect(() => {
                 width: '260px'
               }}
             >
-              {/* Name and balance in the same row */}
-              <div className="flex items-center justify-between">
-                <span
-                  className="text-xs font-semibold"
-                  style={{ color: '#e8e4dc' }}
-                >
-                  {currentPlayer?.displayName || 'You'}
-                </span>
+              
+          {/* Player name, timer, and chip balance */}
+          <div className="grid grid-cols-3 items-center gap-2">
 
+            {/* Player name */}
+            <span
+              className="text-xs font-semibold"
+              style={{ color: '#e8e4dc' }}
+            >
+              {currentPlayer?.displayName || 'You'}
+            </span>
+
+            {/* Countdown for your turn */}
+            <div className="text-center">
+              {myTurn && secondsLeft !== null && game?.round !== 'finished' && (
                 <span
-                  className="text-xs font-semibold"
-                  style={{ color: '#e8e4dc' }}
+                  role="timer"
+                  aria-label="Turn countdown"
+                  className="text-sm font-bold"
+                  style={{
+                    color: secondsLeft <= 10 ? '#ef4444' : '#fbbf24',
+                  }}
                 >
-                  {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+                  {secondsLeft}s
                 </span>
-              </div>
+              )}
+            </div>
+
+            {/* Chip balance */}
+            <span
+              className="text-right text-xs font-semibold"
+              style={{ color: '#e8e4dc' }}
+            >
+              {chipBalance !== null ? `$${chipBalance}` : 'Loading...'}
+            </span>
+
+          </div>
+
 
               {/* Blind label below the name */}
               <div className="text-left">

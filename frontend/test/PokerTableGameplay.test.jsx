@@ -707,4 +707,58 @@ describe('How to play guide', () => {
     expect(screen.getAllByText('Preston').length).toBeGreaterThan(0);
     expect(screen.getByText(/One Pair · \$20/)).toBeInTheDocument();
   });
+  test('displays the countdown during the current player turn', async () => {
+  const game = {
+    ...BOT_GAME,
+    currentTurn: 'u1',
+    turnDeadline: Date.now() + 30000,
+  };
+
+  await renderTable({
+    overrides: {
+      'POST /api/bot-games': () => reply({ game, seats: SEATS }),
+    },
+  });
+
+  await startGame();
+
+  expect(screen.getByRole('timer', { name: 'Turn countdown' }))
+    .toHaveTextContent('30s');
+  });
+  test('turn timer changes to red when time is running out', async () => {
+  const game = {
+    ...BOT_GAME,
+    currentTurn: 'u1',
+    turnDeadline: Date.now() + 8000,
+  };
+
+  await renderTable({
+    overrides: {
+      'POST /api/bot-games': () => reply({ game, seats: SEATS }),
+    },
+  });
+
+  await startGame();
+
+  expect(screen.getByRole('timer', { name: 'Turn countdown' }))
+    .toHaveStyle({ color: '#ef4444' });
+  });
+  test('hides turn countdown after the hand finishes', async () => {
+  const game = {
+    ...BOT_GAME,
+    round: 'finished',
+    turnDeadline: null,
+  };
+
+  await renderTable({
+    overrides: {
+      'POST /api/bot-games': () => reply({ game, seats: SEATS }),
+    },
+  });
+
+  await startGame();
+
+  expect(screen.queryByRole('timer', { name: 'Turn countdown' }))
+    .not.toBeInTheDocument();
+  });
 })

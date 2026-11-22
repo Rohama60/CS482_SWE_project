@@ -30,6 +30,7 @@ const service = {
     draw: jest.fn(),
     leave: jest.fn(),
     runBots: jest.fn(),
+    armTurn: jest.fn(),
     viewFor: jest.fn(),
     load: jest.fn(),
     findLatest: jest.fn()
@@ -139,6 +140,7 @@ beforeEach(() => {
     }
     mockGetJoiningPlayer.mockResolvedValue(PLAYER);
     service.viewFor.mockResolvedValue(VIEW);
+    service.armTurn.mockResolvedValue(undefined);
 });
 
 describe('wiring', () => {
@@ -230,8 +232,8 @@ describe('CreateBotGameController', () => {
         expect(res.status).toHaveBeenCalledWith(201);
         expect(res.json).toHaveBeenCalledWith({ game: VIEW, seats });
 
-        jest.runAllTimers();
-        await Promise.resolve();
+        await jest.runAllTimersAsync();
+        expect(service.armTurn).toHaveBeenCalledWith('g1');
         expect(service.runBots).toHaveBeenCalledWith('g1');
         jest.useRealTimers();
     });
