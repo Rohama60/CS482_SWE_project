@@ -1012,21 +1012,28 @@ describe('Lobby: report a player', () => {
 })
 
 describe('Lobby: ad slots', () => {
-  test('watching an ad shows progress and then confirms the chips', async () => {
-    await setup()
-    const watchButtons = screen.getAllByRole('button', { name: /watch ad/i })
-    expect(watchButtons).toHaveLength(3)
-
-    jest.useFakeTimers()
-    fireEvent.click(watchButtons[0])
-
-    expect(screen.getByRole('button', { name: /playing ad/i })).toBeDisabled()
-
-    act(() => {
-      jest.advanceTimersByTime(2000)
+  test('claiming an ad sends the guest id and updates the chip balance', async () => {
+    const guest = { id: 'guest-9', displayName: 'Guest42', chipamount: 500 }
+    const { user } = await setup({
+      guest,
+      overrides: {
+        'GET /api/players/me/chips': () => jsonResponse({ chipamount: 500 }),
+        'POST /api/players/me/ad-reward': (_url, options) => {
+          expect(options.headers).toEqual({
+            'Content-Type': 'application/json',
+            'x-guest-id': guest.id,
+          })
+          expect(JSON.parse(options.body)).toEqual({ adType: 'quick' })
+          return jsonResponse({ chipamount: 1000, reward: 500 })
+        },
+      },
     })
+    const quickAd = screen.getByText('Quick Ad').closest('.rounded-2xl')
 
-    expect(screen.getByText('✓ Chips added to your stack!')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /watch ad/i })).toHaveLength(2)
+    await user.click(within(quickAd).getByRole('button', { name: /get chips/i }))
+
+    expect(await screen.findByText('✓ Chips added to your stack!')).toBeInTheDocument()
+    expect(await screen.findByText('Guest42 · $1000 chips')).toBeInTheDocument()
+    expect(callFor('POST /api/players/me/ad-reward')).toBeTruthy()
   })
 })

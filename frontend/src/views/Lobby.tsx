@@ -970,25 +970,34 @@ return (
             {/* Earn chips header */}
             <div className="rounded-2xl px-5 py-4" style={{ background: '#161820', border: '1px solid #222430' }}>
               <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: '#c0392b' }}>Low on chips?</p>
-              <p className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>Watch ads, earn chips</p>
+              <p className="text-sm font-semibold" style={{ fontFamily: 'var(--font-display)', color: '#e8e4dc' }}>Click an offer, earn chips</p>
               <p className="text-xs mt-1" style={{ color: '#e8e4dc', opacity: 0.35 }}>Free chips, no purchase needed</p>
             </div>
 
             <AdSlot
+              adType="quick"
               chips="+500"
               label="Quick Ad"
-              sub="15-second spot · one per hour"
+              sub="One claim per hour"
+              guestId={guest?.id}
+              onChipsUpdated={setChipBalance}
               accent
             />
             <AdSlot
+              adType="feature"
               chips="+1,500"
               label="Feature Ad"
-              sub="30-second spot · unlimited"
+              sub="Claim again anytime"
+              guestId={guest?.id}
+              onChipsUpdated={setChipBalance}
             />
             <AdSlot
+              adType="premium"
               chips="+5,000"
               label="Premium Ad"
-              sub="60-second spot · big reward"
+              sub="Claim again anytime · big reward"
+              guestId={guest?.id}
+              onChipsUpdated={setChipBalance}
             />
 
             {/* Banner ad placeholder */}

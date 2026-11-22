@@ -24,6 +24,7 @@ import '@testing-library/jest-dom';
 const mockUseSession = jest.fn();
 const mockSignOut = jest.fn();
 const mockStartGuestSession = jest.fn();
+const mockGetGuest = jest.fn();
 
 // Mock Better Auth
 jest.mock('../src/AuthClient.ts', () => ({
@@ -35,6 +36,7 @@ jest.mock('../src/AuthClient.ts', () => ({
 
 // Mock guest session
 jest.mock('../src/guestSession.ts', () => ({
+    getGuest: (...args) => mockGetGuest(...args),
     startGuestSession: (...args) => mockStartGuestSession(...args)
 }));
 
@@ -54,6 +56,8 @@ describe('Home Component Tests', () => {
     let mockSetView;
     let mockOnSignUp;
     let mockOnSignIn;
+    let mockOnProfile;
+    let mockOnHistory;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -61,11 +65,15 @@ describe('Home Component Tests', () => {
         mockSetView = jest.fn();
         mockOnSignUp = jest.fn();
         mockOnSignIn = jest.fn();
+        mockOnProfile = jest.fn();
+        mockOnHistory = jest.fn();
 
         // Default: user is not signed in
         mockUseSession.mockReturnValue({
             data: null
         });
+        mockGetGuest.mockReturnValue(null);
+        global.fetch = jest.fn(() => new Promise(() => {}));
 
         mockStartGuestSession.mockResolvedValue({});
         mockSignOut.mockResolvedValue({ error: null });
@@ -82,6 +90,8 @@ describe('Home Component Tests', () => {
                 setView={mockSetView}
                 onSignUp={mockOnSignUp}
                 onSignIn={mockOnSignIn}
+                onProfile={mockOnProfile}
+                onHistory={mockOnHistory}
             />
         );
     }
@@ -192,7 +202,7 @@ describe('Home Component Tests', () => {
     expect(mockOnSignUp).toHaveBeenCalledTimes(2);
 
     });
-    test('Displays signed-in user information', () => {
+    test('Displays signed-in user information and loads the current chip balance', async () => {
 
     mockUseSession.mockReturnValue({
         data: {
@@ -202,13 +212,17 @@ describe('Home Component Tests', () => {
             }
         }
     });
+    global.fetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ chipamount: 1250 })
+    });
 
     renderHome();
 
     expect(screen.getByText('John Smith'))
         .toBeInTheDocument();
 
-    expect(screen.getByText(/500 Chips/i))
+    expect(await screen.findByText(/1250 Chips/i))
         .toBeInTheDocument();
 
     expect(screen.getByRole('button', {

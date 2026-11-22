@@ -1,7 +1,7 @@
 import type { View } from '../components/types.ts'
 import { authClient} from '../AuthClient.ts'
-import { startGuestSession } from '../guestSession.ts'
-import { useState } from 'react'
+import { getGuest, startGuestSession } from '../guestSession.ts'
+import { useEffect, useState } from 'react'
 import { AudioSettings } from '../components/AudioSettings.tsx'
 const SUITS = ['♠', '♥', '♦', '♣']
 
@@ -47,10 +47,45 @@ type HomeProps = {
 
 export default function Home({ setView, onSignUp, onSignIn, onProfile, onHistory }: HomeProps) {
     const { data: session } = authClient.useSession();
+    const guest = getGuest()
 
     const [showDropdown, setShowDropdown] = useState(false)
     const [showProfileMenu, setShowProfileMenu] = useState(false)
     const [signingOut, setSigningOut] = useState(false)
+    const [chipBalance, setChipBalance] = useState<number | null>(null)
+
+    useEffect(() => {
+        const controller = new AbortController()
+        async function loadChipBalance() {
+            if (!session?.user && !guest) {
+                setChipBalance(null)
+                return
+            }
+
+            try {
+                const response = await fetch('/api/players/me/chips', {
+                    credentials: 'include',
+                    signal: controller.signal,
+                    ...(guest ? { headers: { 'x-guest-id': guest.id } } : {}),
+                })
+                if (!response.ok) throw new Error(`Chip balance request failed: ${response.status}`)
+
+                const data = await response.json() as { chipamount?: number }
+                if (!controller.signal.aborted && typeof data.chipamount === 'number' && Number.isFinite(data.chipamount)) {
+                    setChipBalance(data.chipamount)
+                }
+            } catch (error) {
+                if (!controller.signal.aborted) {
+                    console.error('Failed to load chip balance:', error)
+                    setChipBalance(null)
+                }
+            }
+        }
+
+        void loadChipBalance()
+        return () => controller.abort()
+    }, [session?.user?.id, guest?.id])
+
     async function playAsGuest() {
         try {
             await startGuestSession()
@@ -223,7 +258,7 @@ export default function Home({ setView, onSignUp, onSignIn, onProfile, onHistory
                 color: '#facc15'
             }}
             >
-            🪙 500 Chips
+            🪙 {chipBalance ?? '—'} Chips
             </span>
         </>
         ) : (
