@@ -20,6 +20,11 @@ const accountSchema = new mongoose.Schema({
     },
     customAvatar: { type: String, select: false },
     lastQuickAdAt: { type: Date },
+    status: {
+        type: String,
+        enum: ['active', 'banned'],
+        default: 'active'
+    },
     role: { 
         type: String, 
         enum: ['player', 'admin'],

@@ -16,6 +16,9 @@ export async function requireAccount(req, res, next) {
         if (!account) {
             return res.status(401).json({ error: 'Authentication required' });
         }
+        if (account.status === 'banned') {
+            return res.status(403).json({ error: 'This account has been banned' });
+        }
 
         req.account = account;
         return next();

@@ -139,6 +139,23 @@ describe('requireAccount', () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
+  test('rejects a banned account', async () => {
+    mockGetSession.mockResolvedValue({
+      user: { id: 'user123' },
+    });
+    mockFindOne.mockResolvedValue({ _id: 'account123', status: 'banned' });
+
+    const req = { headers: {} };
+    const res = mockResponse();
+    const next = jest.fn();
+
+    await requireAccount(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: 'This account has been banned' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   test('returns 401 when account is not found in database', async () => {
     mockGetSession.mockResolvedValue({
       user: { id: 'user123' },

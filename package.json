@@ -48,6 +48,7 @@
     "js-cookie": "^3.0.8",
     "mongodb": "^7.7.0",
     "mongoose": "^9.11.2",
+    "nodemailer": "^10.6.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

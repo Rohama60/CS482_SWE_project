@@ -152,6 +152,14 @@ test('users use sensible defaults for missing details', async () => {
 await openUsers([{ id: 'u2', displayName: 'New Player' }])
 expect(screen.getByText('No email · 0 chips · 0 wins')).toBeInTheDocument()
 })
+test('users returned as a plain array are displayed with their account balances', async () => {
+setupFetch({ users: [{ id: 'u3', displayName: 'Array Player', email: 'player@example.com', chipamount: 750, wins: 2 }] })
+renderDashboard()
+await userEvent.click(screen.getByRole('button', { name: /Player accounts, balances, and status/ }))
+expect(await screen.findByText('Array Player')).toBeInTheDocument()
+expect(screen.getByText('player@example.com · 750 chips · 2 wins')).toBeInTheDocument()
+expect(screen.getByText('Records').nextSibling).toHaveTextContent('1')
+})
 test('tables show stakes, seated players and average pot', async () => {
 setupFetch({
 'poker-tables': {

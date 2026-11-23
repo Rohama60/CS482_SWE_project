@@ -17,6 +17,7 @@ type AdminRecord = {
   clicks?: number
   lastClickedAt?: string | null
   chips?: number
+  chipamount?: number
   wins?: number
   stakes?: string
   seats?: number
@@ -88,12 +89,17 @@ export function AdminDashboard({
         }
         if (!response.ok) throw new Error('Unable to load records')
 
-        const data = await response.json() as { docs?: AdminRecord[]; totalDocs?: number }
-        const loadedRecords = data.docs ?? []
+        const data = await response.json() as AdminRecord[] | { docs?: AdminRecord[]; totalDocs?: number }
+        const loadedRecords = Array.isArray(data) ? data : data.docs ?? []
         setRecords(section === 'ads'
           ? [...loadedRecords].sort((left, right) => (right.clicks ?? 0) - (left.clicks ?? 0))
-          : loadedRecords)
-        setTotal(data.totalDocs ?? 0)
+          : section === 'users'
+            ? loadedRecords.map(record => ({
+                ...record,
+                chips: record.chips ?? record.chipamount,
+              }))
+            : loadedRecords)
+        setTotal(Array.isArray(data) ? loadedRecords.length : data.totalDocs ?? loadedRecords.length)
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           setLoadError('This section could not be loaded. Please try again.')
@@ -122,8 +128,8 @@ export function AdminDashboard({
         return false
       }
       if (!response.ok) {
-        const data = await response.json().catch(() => null) as { errors?: Array<{ message?: string }> } | null
-        throw new Error(data?.errors?.[0]?.message ?? 'The player could not be updated.')
+        const data = await response.json().catch(() => null) as { error?: string; errors?: Array<{ message?: string }> } | null
+        throw new Error(data?.error ?? data?.errors?.[0]?.message ?? 'The player could not be updated.')
       }
       setReloadKey(value => value + 1)
       return true
@@ -163,7 +169,10 @@ export function AdminDashboard({
         onSessionExpired()
         return
       }
-      if (!response.ok) throw new Error('The player account could not be deleted.')
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(data?.error ?? 'The player account could not be deleted.')
+      }
       setDeletingUser(null)
       setReloadKey(value => value + 1)
     } catch (error) {
@@ -208,7 +217,7 @@ export function AdminDashboard({
         : 'Never'
       return `${record.clicks ?? 0} clicks · ${record.placement ?? 'No placement'} · ${record.rewardChips ?? 0} reward chips · Last clicked ${lastClicked}`
     }
-    if (section === 'users') return `${record.email ?? 'No email'} · ${record.chips ?? 0} chips · ${record.wins ?? 0} wins`
+    if (section === 'users') return `${record.email ?? 'No email'} · ${record.chips ?? record.chipamount ?? 0} chips · ${record.wins ?? 0} wins`
     return `${record.stakes ?? 'No stakes'} stakes · ${record.playerCount ?? 0}/${record.seats ?? 0} players seated · avg pot ${record.averagePot ?? '—'}`
   }
 

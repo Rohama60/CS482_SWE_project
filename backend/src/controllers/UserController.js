@@ -14,6 +14,7 @@ function toUserResponse(account) {
     wins: account.wins,
     losses: account.losses,
     role: account.role,
+    status: account.status ?? 'active',
     updatedAt: account.updatedAt,
   };
 }

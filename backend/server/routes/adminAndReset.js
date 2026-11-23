@@ -237,7 +237,6 @@ async function DeleteAdminUserController(req, res) {
 }
 
 router.post('/auth/reset-password', MemberPasswordResetController);
-router.post('/admin/reset-password', verifyAdmin, AdminPasswordResetController);
 router.get('/admin/users', verifyAdmin, GetAdminUsersController);
 router.patch('/admin/users/:id/balance', verifyAdmin, UpdateAdminUserBalanceController);
 router.delete('/admin/users/:id', verifyAdmin, DeleteAdminUserController);

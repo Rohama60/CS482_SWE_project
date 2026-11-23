@@ -118,8 +118,8 @@ io.use(async (socket, next) => {
                 userId: session.user.id
             });
 
-            if (!account) {
-                return next(new Error('Account not found'));
+            if (!account || account.status === 'banned') {
+                return next(new Error('Account is unavailable'));
             }
 
             socket.data.playerIdentity = {
