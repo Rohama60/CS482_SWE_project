@@ -23,6 +23,7 @@ import userRoutes from './routes/userRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import memberRoutes from './routes/memberRoutes.js';
 import gameRoutes, { botGameRouter, playerRouter } from './routes/gameRoutes.js';
+import adminAndReset from './routes/adminAndReset.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,12 +46,32 @@ app.use(cors({
     credentials: true
 }));
 
-app.all('/api/auth/{*splat}', toNodeHandler(auth));
 app.use(express.json());
 app.use((req, res, next) => {
     console.log("REQUEST RECEIVED:", req.method, req.url);
     next();
 });
+
+// Attach Better Auth session user to req.user before custom auth/admin routes
+app.use('/api', async (req, res, next) => {
+    if (req.user || req.session?.user) return next();
+    try {
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(req.headers)) {
+            if (typeof value === 'string') headers.set(key, value);
+            else if (Array.isArray(value)) headers.set(key, value.join(', '));
+        }
+        const sessionData = await auth.api.getSession({ headers });
+        if (sessionData?.user) req.user = sessionData.user;
+    } catch {
+        // Leave req.user unset for unauthenticated requests
+    }
+    return next();
+});
+
+// Mount custom reset & admin routes BEFORE Better Auth catch-all
+app.use('/api', adminAndReset);
+app.all('/api/auth/{*splat}', toNodeHandler(auth));
 
 app.post('/api/signup', SignUpController);
 app.post('/api/login', LoginController);
